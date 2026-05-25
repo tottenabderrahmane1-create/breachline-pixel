@@ -1,0 +1,118 @@
+{
+  "state": {
+    "note": "Canvas coordinates use origin top-left; x right, y down; tiles are 32 px.",
+    "tab": "campaign",
+    "mission": "training_block",
+    "running": true,
+    "time": 5.4,
+    "outcome": null,
+    "selected": "rook",
+    "tool": "waypoint",
+    "camera": {
+      "tile": {
+        "tx": 12,
+        "ty": 6
+      },
+      "zoom": 1.62
+    },
+    "visibility": {
+      "visibleTiles": 185,
+      "seenTiles": 194,
+      "hiddenActiveEnemies": 2,
+      "hiddenObjectives": 1
+    },
+    "assets": {
+      "runtimeAtlas": true,
+      "generatedSheet": true
+    },
+    "operators": [
+      {
+        "id": "rook",
+        "tile": {
+          "tx": 13,
+          "ty": 3
+        },
+        "hp": 84,
+        "down": false,
+        "path": 1,
+        "gear": "shield",
+        "focus": {
+          "tx": 11,
+          "ty": 4
+        },
+        "drones": 1,
+        "suppression": 15,
+        "underFire": 1.2
+      },
+      {
+        "id": "mako",
+        "tile": {
+          "tx": 2,
+          "ty": 7
+        },
+        "hp": 100,
+        "down": false,
+        "path": 0,
+        "gear": "carbine",
+        "focus": null,
+        "drones": 1,
+        "suppression": 0,
+        "underFire": 0
+      },
+      {
+        "id": "lynx",
+        "tile": {
+          "tx": 2,
+          "ty": 9
+        },
+        "hp": 100,
+        "down": false,
+        "path": 0,
+        "gear": "dmr",
+        "focus": null,
+        "drones": 2,
+        "suppression": 0,
+        "underFire": 0
+      },
+      {
+        "id": "volt",
+        "tile": {
+          "tx": 3,
+          "ty": 11
+        },
+        "hp": 100,
+        "down": false,
+        "path": 0,
+        "gear": "shotgun",
+        "focus": null,
+        "drones": 1,
+        "suppression": 0,
+        "underFire": 0
+      }
+    ],
+    "enemies": [
+      {
+        "id": "hostile1",
+        "role": "sentry",
+        "tile": {
+          "tx": 11,
+          "ty": 4
+        },
+        "hp": 11,
+        "armor": 0,
+        "alert": true,
+        "tagged": false,
+        "suppression": 50,
+        "stunned": 0
+      }
+    ],
+    "drones": [],
+    "objectives": [],
+    "civilians": [],
+    "extraction": {
+      "tx": 2,
+      "ty": 17
+    }
+  },
+  "errors": []
+}
