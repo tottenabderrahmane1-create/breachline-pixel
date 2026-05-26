@@ -667,7 +667,10 @@ li {
   animation: bp-lock-pulse 2.4s ease-in-out infinite;
 }
 
-.mission-btn.locked .mission-lock-stamp svg {
+.mission-btn.locked .mission-lock-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
   filter: drop-shadow(0 0 4px rgba(255, 159, 145, 0.7));
 }
 
@@ -794,8 +797,8 @@ li {
   }
 }
 
-/* Padlock shake on hover */
-.mission-btn.locked:hover .mission-lock-stamp svg {
+/* Lock icon shake on hover */
+.mission-btn.locked:hover .mission-lock-icon {
   animation: bp-lock-shake 0.4s ease-in-out infinite;
 }
 

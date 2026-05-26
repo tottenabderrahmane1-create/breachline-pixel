@@ -26,7 +26,7 @@ const loadingPercent = document.getElementById("loadingPercent");
 const homeHub = document.getElementById("homeHub");
 const radialMenu = document.getElementById("radialMenu");
 
-const ASSET_VERSION = "7";
+const ASSET_VERSION = "9";
 const aiSheet = new Image();
 aiSheet.src = `./assets/ai-generated-pixel-asset-sheet.png?v=${ASSET_VERSION}`;
 const runtimeAtlas = new Image();
@@ -4414,29 +4414,18 @@ function drawMap() {
         ctx.lineTo(px + TILE - 7, py + TILE - 7);
         ctx.stroke();
       } else if (tile.type === "stairs") {
-        // Programmatic stair render — the standalone stairs.png Codex delivered is
-        // currently a broken crop, so draw a clear pixel staircase ourselves so the
-        // tile always reads as crossable. Once `assets/stairs.png` is recropped this
-        // block can fall back to drawGeneratedAsset("stairs", ...) again.
-        const baseFloor = visible ? "#162624" : "#0c1413";
-        ctx.fillStyle = baseFloor;
+        ctx.fillStyle = visible ? "#162624" : "#0c1413";
         ctx.fillRect(px, py, TILE, TILE);
-        ctx.fillStyle = visible ? "rgba(107, 214, 218, 0.18)" : "rgba(107, 214, 218, 0.08)";
-        ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
-        const step = visible ? "#9bf0f3" : "#3d6669";
-        const stepDeep = visible ? "#62b6a6" : "#26464a";
-        for (let i = 0; i < 4; i += 1) {
-          const sy = py + 6 + i * 5;
-          const inset = 4 + i * 2;
-          ctx.fillStyle = i === 0 ? step : stepDeep;
-          ctx.fillRect(px + inset, sy, TILE - inset * 2, 3);
-        }
-        if (visible) {
-          // Up arrow in upper-right corner so the player reads it as "go to the other floor"
-          ctx.fillStyle = "#ffe98a";
-          ctx.fillRect(px + TILE - 9, py + 4, 1, 5);
-          ctx.fillRect(px + TILE - 11, py + 6, 5, 1);
-          ctx.fillRect(px + TILE - 10, py + 5, 3, 1);
+        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.12);
+        if (!drawGeneratedAsset("stairs", px + TILE / 2, py + TILE / 2, TILE + 4, visible ? 0.95 : 0.42)) {
+          const step = visible ? "#9bf0f3" : "#3d6669";
+          const stepDeep = visible ? "#62b6a6" : "#26464a";
+          for (let i = 0; i < 4; i += 1) {
+            const sy = py + 6 + i * 5;
+            const inset = 4 + i * 2;
+            ctx.fillStyle = i === 0 ? step : stepDeep;
+            ctx.fillRect(px + inset, sy, TILE - inset * 2, 3);
+          }
         }
       }
       if (!visible && seen) {
@@ -4479,6 +4468,10 @@ function drawWallTile(x, y, px, py, visible, seen) {
   const s = wallVisualConnects(x, y + 1);
   const e = wallVisualConnects(x + 1, y);
   const w = wallVisualConnects(x - 1, y);
+  drawWallPieceAt(px, py, n, e, s, w, visible, seen);
+}
+
+function drawWallPieceAt(px, py, n, e, s, w, visible, seen) {
   ctx.fillStyle = visible ? "#1c2422" : "#0c1110";
   ctx.fillRect(px, py, TILE, TILE);
   const piece = wallPieceFor(n, e, s, w);
@@ -5160,7 +5153,11 @@ function renderEditorMap() {
       const ch = editor.grid[y][x];
       const px = x * TILE;
       const py = y * TILE;
-      ctx.fillStyle = ch === "#" ? colors.wall : ch === "B" ? colors.crate : colors.floor;
+      if (ch === "#") {
+        drawEditorWallTile(editor.grid, x, y, px, py);
+        continue;
+      }
+      ctx.fillStyle = ch === "B" ? colors.crate : colors.floor;
       ctx.fillRect(px, py, TILE, TILE);
       ctx.strokeStyle = "rgba(0,0,0,0.16)";
       ctx.strokeRect(px, py, TILE, TILE);
@@ -5173,18 +5170,32 @@ function renderEditorMap() {
       } else if (ch === "A") {
         if (!drawGeneratedAsset("stairs", px + TILE / 2, py + TILE / 2, TILE, 0.9)) drawEditorGlyph(px, py, "#6bd6da", "A");
       } else if (ch === "S") {
-        drawEditorGlyph(px, py, "#77c7bd", "S");
+        if (!drawAtlasSprite("op_rook", px + TILE / 2, py + TILE / 2, TILE, 0, 0.9)) drawEditorGlyph(px, py, "#77c7bd", "S");
       } else if (ch === "E") {
-        drawEditorGlyph(px, py, colors.hostile, "E");
+        if (!drawAtlasSprite("enemy_a", px + TILE / 2, py + TILE / 2, TILE, 0, 0.9)) drawEditorGlyph(px, py, colors.hostile, "E");
       } else if (ch === "C") {
-        drawEditorGlyph(px, py, colors.civilian, "C");
+        if (!drawAtlasSprite("civilian", px + TILE / 2, py + TILE / 2, TILE, 0, 0.9)) drawEditorGlyph(px, py, colors.civilian, "C");
       } else if (ch === "O") {
-        drawEditorGlyph(px, py, colors.objective, "O");
+        if (!drawAtlasSprite("objective", px + TILE / 2, py + TILE / 2, TILE, 0, 0.9)) drawEditorGlyph(px, py, colors.objective, "O");
       } else if (ch === "X") {
-        drawEditorGlyph(px, py, colors.extract, "X");
+        if (!drawAtlasSprite("extract", px + TILE / 2, py + TILE / 2, TILE, 0, 0.9)) drawEditorGlyph(px, py, colors.extract, "X");
       }
     }
   }
+}
+
+function drawEditorWallTile(grid, x, y, px, py) {
+  const n = editorWallConnects(grid, x, y - 1);
+  const s = editorWallConnects(grid, x, y + 1);
+  const e = editorWallConnects(grid, x + 1, y);
+  const w = editorWallConnects(grid, x - 1, y);
+  drawWallPieceAt(px, py, n, e, s, w, true, true);
+}
+
+function editorWallConnects(grid, x, y) {
+  if (x < 0 || y < 0 || y >= grid.length || x >= grid[y].length) return false;
+  const ch = grid[y][x];
+  return ch === "#" || ch === "D" || ch === "W" || ch === "A";
 }
 
 function drawEditorGlyph(px, py, color, label) {
@@ -5449,11 +5460,7 @@ function renderCampaignPanel() {
             <button class="mission-btn ${activeClass} ${lockedClass}" data-mission="${esc(mission.id)}" ${lock.unlocked ? "" : 'aria-disabled="true"'}>
               ${lock.unlocked ? "" : `
                 <span class="mission-lock-stamp" aria-hidden="true">
-                  <svg viewBox="0 0 12 14" width="12" height="14" focusable="false" aria-hidden="true">
-                    <rect x="2" y="6" width="8" height="7" fill="currentColor" rx="1"/>
-                    <path d="M4 6 V4 a2 2 0 0 1 4 0 V6" fill="none" stroke="currentColor" stroke-width="1.4"/>
-                    <rect x="5" y="9" width="2" height="2" fill="#0d1614"/>
-                  </svg>
+                  ${iconMarkup("shield", "mission-lock-icon")}
                   <em>CLASSIFIED</em>
                 </span>
                 <span class="mission-lock-hatch" aria-hidden="true"></span>
