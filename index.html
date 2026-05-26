@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Breachline Pixel</title>
+    <link rel="icon" href="./assets/favicon.png" type="image/png" />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="loadingScreen" class="loading-screen" aria-live="polite" aria-label="Breachline Pixel loading">
+      <div class="loading-card">
+        <img class="loading-logo" src="./assets/logo.png" alt="Breachline Pixel" />
+        <div class="loading-copy">
+          <strong>Breachline Pixel</strong>
+          <span id="loadingStatus">Initializing tactical map</span>
+        </div>
+        <div class="loading-track"><span id="loadingBar"></span></div>
+        <div id="loadingPercent" class="loading-percent">0%</div>
+      </div>
+    </div>
+    <section id="homeHub" class="home-hub" aria-label="Breachline Pixel home"></section>
+    <div id="radialMenu" class="radial-menu" hidden aria-label="Tactical radial menu"></div>
+    <main class="shell">
+      <aside class="panel panel-left">
+        <div class="brand">
+          <img class="brand-logo" src="./assets/logo.png" alt="" aria-hidden="true" />
+          <div>
+            <h1>Breachline Pixel</h1>
+            <p id="profileLine">Local profile</p>
+          </div>
+        </div>
+        <nav class="tabs" aria-label="Game tabs">
+          <button class="tab active" data-tab="campaign">Ops</button>
+          <button class="tab" data-tab="armory">Armory</button>
+          <button class="tab" data-tab="addons">Add-ons</button>
+          <button class="tab" data-tab="editor">Editor</button>
+        </nav>
+        <section id="leftContent" class="panel-content"></section>
+      </aside>
+
+      <section class="stage-wrap">
+        <div class="hudbar">
+          <div id="missionTitle">No mission loaded</div>
+          <div class="hud-actions">
+            <button id="goBtn" class="primary">Go</button>
+            <button id="pauseBtn">Pause</button>
+            <button id="restartBtn">Restart</button>
+            <button id="fullscreenBtn" title="Toggle fullscreen">F</button>
+          </div>
+        </div>
+        <canvas id="game" width="960" height="640" aria-label="Breachline Pixel game canvas"></canvas>
+        <div class="hintline" id="hintLine">
+          Left click selects or orders. Right click removes last waypoint. Space pauses. 1-4 selects operators.
+        </div>
+      </section>
+
+      <aside class="panel panel-right">
+        <section id="rightContent" class="panel-content"></section>
+      </aside>
+    </main>
+    <input id="addonFile" type="file" accept="application/json" hidden />
+    <script src="./src/game.js?v=png-asset-polish-9" type="module"></script>
+  </body>
+</html>
