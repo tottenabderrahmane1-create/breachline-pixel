@@ -131,6 +131,7 @@ Progress:
 - GitHub Pages cleanup: removed the stale custom-domain flow and kept Pages on the standard URL (`https://tottenabderrahmane1-create.github.io/breachline-pixel/`) with `cname: null`. The live site now publishes from the clean `gh-pages` branch; `bf7f359` built successfully and returns HTTP 200 without redirecting to `hackquest.com`.
 - Added `tools/deploy_pages.sh` and `npm run deploy:pages` so future updates deploy by syncing `docs/` to `gh-pages`, refreshing `DEPLOY_VERSION.txt`, preserving legacy Pages source `gh-pages:/`, and triggering a Pages build. Removed the unused workflow deploy path to avoid conflicting with the working branch deploy.
 - Verified local and live builds with the web-game Playwright runner after installing the missing Playwright Chromium binary. Both `http://127.0.0.1:5173/?continue_check=1` and the live GitHub Pages URL launched Training Block, loaded all standalone PNG assets, reported no console/page errors, and produced matching `render_game_to_text` state.
+- Ran the new `npm run deploy:pages` path for real. It pushed `gh-pages` commit `6404f23`, GitHub Pages reported `status: built`, `cname: null`, and `DEPLOY_VERSION.txt` on the live site now reads `2026-05-28T16:47:49Z`.
 
 TODO:
 - Codex / image-gen: continue delivering remaining `ASSETS_TODO.md` slugs (mission banners, weapon icons, VFX spritesheets, multi-floor chips, enemy-role sprites). New slugs land in `assets/` and get added to the `imageAssetSources` map in `src/game.js` (and removed from any sheet-coord fallback that lingers).
