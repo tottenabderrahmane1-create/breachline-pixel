@@ -11,6 +11,21 @@ npm run dev
 
 Then open `http://127.0.0.1:5173`.
 
+Live build:
+
+```text
+https://tottenabderrahmane1-create.github.io/breachline-pixel/
+```
+
+This project is currently published from the `gh-pages` branch with no custom
+domain. Do not add a `CNAME` file unless DNS for that domain is already working.
+
+To publish the current `docs/` build:
+
+```bash
+npm run deploy:pages
+```
+
 ## What is included
 
 - Real-time-with-pause command play
