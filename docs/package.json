@@ -5,6 +5,7 @@
   "description": "Original pixel-art top-down tactical breach game for the web.",
   "scripts": {
     "dev": "python3 -m http.server 5173",
-    "start": "python3 -m http.server 5173"
+    "start": "python3 -m http.server 5173",
+    "deploy:pages": "bash tools/deploy_pages.sh"
   }
 }

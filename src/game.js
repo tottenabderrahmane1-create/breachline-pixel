@@ -26,7 +26,7 @@ const loadingPercent = document.getElementById("loadingPercent");
 const homeHub = document.getElementById("homeHub");
 const radialMenu = document.getElementById("radialMenu");
 
-const ASSET_VERSION = "9";
+const ASSET_VERSION = "10";
 const aiSheet = new Image();
 aiSheet.src = `./assets/ai-generated-pixel-asset-sheet.png?v=${ASSET_VERSION}`;
 const runtimeAtlas = new Image();
@@ -842,10 +842,20 @@ function architectMission(config) {
     night: Boolean(config.night),
     tags: config.tags || [],
     rooms: config.rooms || [],
+    enemyOverrides: config.enemyOverrides || [],
     levels: config.levels || 1,
     scenario: config.scenario || "",
     tiles: rowsFromGrid(grid),
   };
+}
+
+function setEnemy(grid, overrides, x, y, role = "sentry") {
+  setTile(grid, x, y, "E");
+  if (overrides) overrides.push({ tx: x, ty: y, role });
+}
+
+function setEnemies(grid, overrides, entries) {
+  for (const entry of entries) setEnemy(grid, overrides, entry[0], entry[1], entry[2] || "sentry");
 }
 
 function setTiles(grid, points, char) {
@@ -926,12 +936,12 @@ function roomInteriorTarget(grid, item) {
   return { tx: cx, ty: cy };
 }
 
-function openMissionPathTile(grid, tx, ty) {
+function openMissionPathTile(grid, tx, ty, emergencyFloor = false) {
   if (tx <= 0 || ty <= 0 || tx >= COLS - 1 || ty >= ROWS - 1) return;
   const ch = grid[ty][tx];
   if (missionMarker(ch) || ch === "D") return;
   if (ch === "#") {
-    grid[ty][tx] = "D";
+    grid[ty][tx] = emergencyFloor ? "." : "D";
   } else if (ch === "B" || ch === "W") {
     grid[ty][tx] = ".";
   }
@@ -949,11 +959,11 @@ function carveMissionSegment(grid, from, to) {
   const dx = Math.sign(to.tx - from.tx);
   const dy = Math.sign(to.ty - from.ty);
   while (x !== to.tx || y !== to.ty) {
-    openMissionPathTile(grid, x, y);
+    openMissionPathTile(grid, x, y, true);
     if (x !== to.tx) x += dx;
     else if (y !== to.ty) y += dy;
   }
-  openMissionPathTile(grid, to.tx, to.ty);
+  openMissionPathTile(grid, to.tx, to.ty, true);
 }
 
 function carveMissionPath(grid, from, to) {
@@ -1170,13 +1180,13 @@ function missionMarketRescue() {
   // Enemies: shopfront sentries with sandbag overwatch on the lane, a rusher in the Back Office stack,
   // an armored guarding the hostage, a flanker waiting in the Hostage Store doorway.
   setTiles(g, [[10, 4], [21, 4], [25, 10], [8, 14], [22, 13], [22, 15], [19, 15]], "E");
-  // Civilian inside the Tea House, behind the armored guard.
-  setTile(g, 22, 5, "C");
+  // Civilian inside the Hostage Store, close enough to force a controlled clear.
+  setTile(g, 10, 14, "C");
   setTile(g, 26, 16, "X");
   return architectMission({
     id: "market_rescue",
     title: "Operation Market Lantern",
-    brief: "Shopfront sentries cover the market lane through window slits; the hostage sits behind an armored guard in the Tea House.",
+    brief: "Shopfront sentries cover the market lane through window slits; the hostage is held in the south store behind a close guard.",
     difficulty: 2,
     objectiveText: "Rescue the civilian and reach extraction.",
     scenario: "Cross the market lane under fire from shopfront windows, then breach the rear block to free the hostage.",
@@ -1279,7 +1289,7 @@ function missionDocksideRelay() {
   // Doors: harbor↔customs, harbor→yard, customs→yard, relay west door, relay east door.
   setTiles(g, [[13, 5], [8, 7], [20, 8], [12, 12], [21, 12]], "D");
   // Windows: harbor office faces the yard; customs has a sniper slit on the east wall.
-  setTiles(g, [[8, 7], [10, 7], [17, 8], [19, 8], [26, 6]], "W");
+  setTiles(g, [[10, 7], [12, 5], [17, 8], [19, 8], [26, 6]], "W");
   // Defender cover: office desks, customs shelving, relay-room console ring around objective.
   setTiles(g, [[7, 4], [11, 4], [18, 4], [22, 4], [25, 5], [18, 14], [20, 14]], "B");
   // Starts: 4 ops on the west pier edge.
@@ -1711,27 +1721,26 @@ function missionCargoHold() {
   const g = makeGrid();
   const rooms = [];
   // Cargo ship main deck. Bridge sits NE with windows onto the deck; crew quarters NW;
-  // the cargo hold (objective) dominates the south; engine room SE houses a suppressor.
+  // the container deck dominates the south; engine room SE houses a suppressor.
   // Container rows form three north-south lanes across the deck.
   addRoomShell(g, rooms, "Crew Quarters", 2, 2, 9, 7, "level-1");
   addRoomShell(g, rooms, "Bridge", 19, 2, 9, 6, "objective");
-  addRoomShell(g, rooms, "Main Deck", 2, 10, 18, 8, "open");
-  addRoomShell(g, rooms, "Cargo Hold", 6, 12, 12, 6, "objective");
+  addRoomShell(g, rooms, "Container Deck", 2, 10, 18, 8, "open");
   addRoomShell(g, rooms, "Engine Room", 21, 11, 7, 7, "service");
   // Doors: dockside entry (west), crew↔deck, bridge↔deck, deck↔cargo hold, deck↔engine room.
-  setTiles(g, [[2, 5], [6, 9], [22, 7], [12, 11], [12, 17], [20, 14]], "D");
+  setTiles(g, [[2, 5], [6, 9], [22, 7], [12, 10], [19, 14], [21, 16]], "D");
   // Windows: bridge fires south through windowed wall onto the deck; engine room has east slit.
   setTiles(g, [[21, 7], [24, 7], [26, 7], [27, 13]], "W");
   // Container row cover: three north-south rows of containers on the deck.
   for (let y = 11; y < 18; y += 3) {
     for (let x = 4; x < 19; x += 4) setTile(g, x, y, "B");
   }
-  // Defender cover: crew bunks, bridge console ring around the helm/objective, engine sandbags, cargo hold ring.
-  setTiles(g, [[5, 4], [9, 4], [21, 4], [25, 4], [22, 13], [25, 13], [22, 16], [10, 14], [14, 14]], "B");
+  // Defender cover: crew bunks, bridge console ring around the helm/objective, engine sandbags, container lash points.
+  setTiles(g, [[5, 4], [9, 4], [21, 4], [25, 4], [22, 13], [25, 13], [22, 16], [10, 14], [14, 14], [7, 17], [18, 11]], "B");
   // Starts: 4 ops at the west dockside.
   setTiles(g, [[1, 4], [1, 5], [1, 6], [1, 7]], "S");
   // Enemies: crew rusher, crew sentry, bridge armored over helm, bridge sentry,
-  // deck patrol (rusher + flanker behind containers), engine suppressor on east slit, cargo hold guard.
+  // deck patrol (rusher + flanker behind containers), engine suppressor on east slit, deck guard.
   setTiles(g, [[5, 5], [8, 7], [22, 4], [25, 4], [10, 13], [16, 16], [26, 13], [12, 14]], "E");
   // Objective: bridge helm console.
   setTile(g, 23, 4, "O");
@@ -1739,7 +1748,7 @@ function missionCargoHold() {
   return architectMission({
     id: "cargo_hold",
     title: "Operation Cargo Hold",
-    brief: "Cargo ship. Bridge windows fire south down the deck; engine-room suppressor owns the east lane; container rows split the squad into three lanes.",
+    brief: "Cargo ship. Bridge windows fire south down the container deck; engine-room suppressor owns the east lane; cargo rows split the squad into three lanes.",
     difficulty: 4,
     objectiveText: "Seize the bridge helm and extract through the gantry.",
     scenario: "Push one of the three container lanes — left lane gets you to the bridge fastest but is in window fire; right lane silences the engine suppressor.",
@@ -1887,28 +1896,28 @@ function missionPenthouse() {
     setTile(g, 15, y, "#");
   }
   setTiles(g, [[14, 9], [15, 9], [14, 10], [15, 10], [14, 11], [15, 11]], "A");
-  addRoomShell(g, rooms, "Lobby Foyer", 2, 2, 12, 6, "level-1");
-  addRoomShell(g, rooms, "Security Room", 2, 8, 6, 6, "level-1");
-  addRoomShell(g, rooms, "Kitchen", 8, 8, 6, 6, "level-1");
+  addRoomShell(g, rooms, "Lobby Foyer", 2, 2, 12, 5, "level-1");
+  addRoomShell(g, rooms, "Security Room", 2, 9, 5, 5, "level-1");
+  addRoomShell(g, rooms, "Kitchen", 8, 8, 6, 7, "level-1");
   addRoomShell(g, rooms, "Parking Entry", 2, 15, 12, 4, "level-1");
-  addRoomShell(g, rooms, "Gallery", 16, 2, 12, 5, "level-2");
-  addRoomShell(g, rooms, "Master Suite", 16, 8, 6, 6, "level-2");
+  addRoomShell(g, rooms, "Gallery", 16, 2, 10, 4, "level-2");
+  addRoomShell(g, rooms, "Master Suite", 16, 7, 7, 7, "level-2");
   addRoomShell(g, rooms, "Panic Room", 23, 8, 5, 6, "objective");
   addRoomShell(g, rooms, "Roof Bay", 16, 15, 12, 4, "level-2");
   // Doors: lobby west entry, lobby↔security, lobby↔kitchen, security↔parking, kitchen↔parking,
   //        gallery↔master, master↔panic, gallery↔roof, panic↔roof.
-  setTiles(g, [[2, 4], [5, 7], [11, 7], [5, 14], [11, 14], [21, 7], [22, 11], [25, 7], [24, 14], [16, 11]], "D");
+  setTiles(g, [[2, 4], [5, 9], [11, 8], [5, 13], [11, 16], [20, 5], [20, 7], [22, 11], [25, 8], [24, 15], [16, 12]], "D");
   // Windows: lobby street face, gallery street face, master observation, security one-way mirror.
-  setTiles(g, [[5, 2], [10, 2], [18, 2], [25, 2], [22, 8], [27, 11], [4, 11], [10, 11]], "W");
+  setTiles(g, [[5, 2], [10, 2], [18, 2], [24, 2], [22, 8], [27, 11], [4, 11], [13, 12]], "W");
   // Defender cover: lobby reception ring, security desk, kitchen counter, parking bollards,
   //                 gallery plinth, master sandbags, panic-room console ring, roof planters.
-  setTiles(g, [[6, 4], [10, 4], [4, 11], [11, 11], [6, 16], [10, 16], [18, 4], [24, 4], [18, 10], [24, 11], [26, 11], [20, 16], [25, 16]], "B");
+  setTiles(g, [[6, 4], [10, 4], [4, 11], [11, 11], [6, 17], [10, 17], [18, 4], [23, 4], [18, 10], [20, 12], [24, 11], [26, 11], [20, 16], [25, 16]], "B");
   setTiles(g, [[1, 4], [1, 5], [1, 17], [2, 17]], "S");
   // Enemies (10): lobby sentry, security analyst behind desk, kitchen rusher, parking flanker,
   // stairwell ARMORED at the divider, gallery overwatch with window angle, master guard near civilian,
   // panic-room ARMORED on objective, roof suppressor on east window slit, roof sentry.
-  setTiles(g, [[8, 4], [4, 11], [11, 12], [8, 16], [12, 10], [18, 4], [18, 11], [25, 10], [26, 15], [22, 16]], "E");
-  setTile(g, 19, 10, "C");
+  setTiles(g, [[8, 4], [4, 11], [11, 12], [8, 17], [12, 10], [18, 4], [19, 11], [25, 10], [26, 15], [22, 16]], "E");
+  setTile(g, 20, 10, "C");
   setTile(g, 25, 9, "O");
   setTile(g, 28, 17, "X");
   return architectMission({
@@ -1994,6 +2003,7 @@ function parseMission(mission) {
   const civilians = [];
   const objectives = [];
   let extraction = null;
+  const roleOverrides = mission.enemyOverrides || [];
 
   for (let y = 0; y < ROWS; y += 1) {
     const row = [];
@@ -2013,7 +2023,10 @@ function parseMission(mission) {
       if (ch === "B") type = "crate";
       if (ch === "A") type = "stairs";
       if (ch === "S") starts.push(tileCenter(x, y));
-      if (ch === "E") enemies.push(makeEnemy(x, y, enemies.length, mission.difficulty));
+      if (ch === "E") {
+        const override = roleOverrides.find((item) => item.tx === x && item.ty === y);
+        enemies.push(makeEnemy(x, y, enemies.length, mission.difficulty, override ? override.role : null));
+      }
       if (ch === "C") civilians.push({ id: `civ${civilians.length + 1}`, ...tileCenter(x, y), rescued: false, extracted: false, followId: null });
       if (ch === "O") objectives.push({ id: `obj${objectives.length + 1}`, ...tileCenter(x, y), secured: false, progress: 0 });
       if (ch === "X") extraction = tileCenter(x, y);
@@ -2023,14 +2036,15 @@ function parseMission(mission) {
   }
 
   while (starts.length < 4) starts.push(tileCenter(2 + starts.length, ROWS - 3));
+  assignContextualEnemyRoles(enemies, mission, { objectives, civilians, rooms: mission.rooms || [], starts, windows });
   assignEnemySquads(enemies);
   return { map, starts, doors, windows, enemies, civilians, objectives, extraction, rooms: mission.rooms || [] };
 }
 
-function makeEnemy(tx, ty, index, difficulty) {
+function makeEnemy(tx, ty, index, difficulty, roleOverride) {
   const p = tileCenter(tx, ty);
   const roleCycle = difficulty >= 3 ? ["sentry", "rusher", "flanker", "armored", "suppressor"] : ["sentry", "rusher", "flanker"];
-  const roleKey = roleCycle[index % roleCycle.length];
+  const roleKey = enemyRoles[roleOverride] ? roleOverride : roleCycle[index % roleCycle.length];
   const role = enemyRoles[roleKey];
   const leashByRole = { sentry: 80, armored: 130, suppressor: 170, flanker: 320, rusher: 360 };
   return {
@@ -2064,6 +2078,123 @@ function makeEnemy(tx, ty, index, difficulty) {
     postStunBoost: 0,
     peekT: 0,
   };
+}
+
+function applyEnemyRole(enemy, roleKey) {
+  if (!enemy || !enemyRoles[roleKey]) return;
+  const role = enemyRoles[roleKey];
+  enemy.role = roleKey;
+  enemy.hp = role.hp;
+  enemy.maxHp = role.hp;
+  enemy.armor = role.armor;
+  enemy.speed = role.speed;
+  enemy.weapon = role.weapon;
+  const leashByRole = { sentry: 80, armored: 130, suppressor: 170, flanker: 320, rusher: 360 };
+  enemy.leashRange = leashByRole[roleKey] || 220;
+}
+
+function assignContextualEnemyRoles(enemies, mission, context) {
+  if (!enemies || !enemies.length) return;
+  const explicit = {};
+  for (const item of mission.enemyOverrides || []) explicit[keyOf(item.tx, item.ty)] = item.role;
+  let armoredCount = 0;
+  let suppressorCount = 0;
+  for (const enemy of enemies) {
+    const tile = worldToTile(enemy.x, enemy.y);
+    const override = explicit[keyOf(tile.tx, tile.ty)];
+    if (override && enemyRoles[override]) {
+      applyEnemyRole(enemy, override);
+      if (override === "armored") armoredCount += 1;
+      if (override === "suppressor") suppressorCount += 1;
+      continue;
+    }
+    const nearObjective = (context.objectives || []).some((obj) => Math.hypot(enemy.x - obj.x, enemy.y - obj.y) <= TILE * 2.4);
+    const nearWindow = (context.windows || []).some((win) => Math.hypot(tile.tx - win.tx, tile.ty - win.ty) <= 2.4);
+    const nearStart = (context.starts || []).some((start) => Math.hypot(enemy.x - start.x, enemy.y - start.y) <= TILE * 5.2);
+    const room = roomAtTile(tile.tx, tile.ty, context.rooms || []);
+    if (nearObjective && armoredCount < Math.max(1, mission.difficulty >= 5 ? 2 : 1)) {
+      applyEnemyRole(enemy, "armored");
+      armoredCount += 1;
+    } else if ((nearWindow || (room && (room.kind === "platform" || room.kind === "open"))) && suppressorCount < Math.max(1, mission.difficulty >= 4 ? 2 : 1)) {
+      applyEnemyRole(enemy, "suppressor");
+      suppressorCount += 1;
+    } else if (nearStart) {
+      applyEnemyRole(enemy, "rusher");
+    } else if (room && (room.kind === "suite" || room.kind === "service" || room.kind === "den" || room.kind === "garage")) {
+      applyEnemyRole(enemy, "flanker");
+    } else {
+      applyEnemyRole(enemy, "sentry");
+    }
+  }
+  balanceEnemyRoles(enemies, mission, context);
+}
+
+function balanceEnemyRoles(enemies, mission, context) {
+  if (!enemies || enemies.length < 3) return;
+  const counts = enemies.reduce((acc, enemy) => {
+    acc[enemy.role] = (acc[enemy.role] || 0) + 1;
+    return acc;
+  }, {});
+  const starts = context.starts || [];
+  const protectPoints = (context.objectives || []).concat(context.civilians || []);
+  if (!counts.armored && mission.difficulty >= 2 && protectPoints.length) {
+    const guard = nearestEnemyToPoints(enemies, protectPoints);
+    if (guard) applyEnemyRole(guard, "armored");
+  }
+  if (!counts.rusher && mission.difficulty >= 2 && starts.length) {
+    const entry = nearestEnemyToPoints(enemies, starts, "sentry") || nearestEnemyToPoints(enemies, starts);
+    if (entry && entry.role === "sentry") applyEnemyRole(entry, "rusher");
+  }
+  if (!counts.suppressor && mission.difficulty >= 3 && context.windows && context.windows.length) {
+    const lane = nearestEnemyToPoints(enemies, context.windows.map((win) => tileCenter(win.tx, win.ty)), "sentry");
+    if (lane && lane.role === "sentry") applyEnemyRole(lane, "suppressor");
+  }
+  const refreshed = enemies.reduce((acc, enemy) => {
+    acc[enemy.role] = (acc[enemy.role] || 0) + 1;
+    return acc;
+  }, {});
+  if (!refreshed.flanker && mission.difficulty >= 3 && starts.length && enemies.length >= 6) {
+    const flank = farthestEnemyFromPoints(enemies, starts, "sentry");
+    if (flank && flank.role === "sentry") applyEnemyRole(flank, "flanker");
+  }
+}
+
+function nearestEnemyToPoints(enemies, points, roleFilter) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const enemy of enemies) {
+    if (roleFilter && enemy.role !== roleFilter) continue;
+    for (const point of points || []) {
+      const d = Math.hypot(enemy.x - point.x, enemy.y - point.y);
+      if (d < bestDist) {
+        bestDist = d;
+        best = enemy;
+      }
+    }
+  }
+  return best;
+}
+
+function farthestEnemyFromPoints(enemies, points, roleFilter) {
+  let best = null;
+  let bestDist = -Infinity;
+  for (const enemy of enemies) {
+    if (roleFilter && enemy.role !== roleFilter) continue;
+    let nearest = Infinity;
+    for (const point of points || []) nearest = Math.min(nearest, Math.hypot(enemy.x - point.x, enemy.y - point.y));
+    if (nearest > bestDist) {
+      bestDist = nearest;
+      best = enemy;
+    }
+  }
+  return best;
+}
+
+function roomAtTile(tx, ty, rooms) {
+  for (const item of rooms || []) {
+    if (tx >= item.x && tx < item.x + item.w && ty >= item.y && ty < item.y + item.h) return item;
+  }
+  return null;
 }
 
 function assignEnemySquads(enemies) {
@@ -4428,12 +4559,37 @@ function drawMap() {
           }
         }
       }
+      if (tile.type !== "wall" && (visible || seen)) drawRoomPurposeTint(x, y, px, py, visible);
       if (!visible && seen) {
         ctx.fillStyle = "rgba(9, 16, 14, 0.1)";
         ctx.fillRect(px, py, TILE, TILE);
       }
     }
   }
+}
+
+function drawRoomPurposeTint(tx, ty, px, py, visible) {
+  const item = roomAtTile(tx, ty, state.rooms);
+  if (!item) return;
+  const color = roomPurposeColor(item.kind);
+  if (!color) return;
+  ctx.fillStyle = color.replace("ALPHA", visible ? "0.075" : "0.035");
+  ctx.fillRect(px, py, TILE, TILE);
+  if ((tx + ty) % 5 === 0 && visible) {
+    ctx.fillStyle = color.replace("ALPHA", "0.1");
+    ctx.fillRect(px + 4, py + 4, 3, 3);
+  }
+}
+
+function roomPurposeColor(kind) {
+  if (kind === "objective" || kind === "records" || kind === "power") return "rgba(226, 198, 92, ALPHA)";
+  if (kind === "entry" || kind === "lobby" || kind === "training") return "rgba(91, 170, 209, ALPHA)";
+  if (kind === "open" || kind === "platform") return "rgba(110, 183, 128, ALPHA)";
+  if (kind === "service" || kind === "storage" || kind === "garage" || kind === "shed") return "rgba(154, 164, 176, ALPHA)";
+  if (kind === "level-2" || kind === "suite") return "rgba(155, 121, 205, ALPHA)";
+  if (kind === "level-1" || kind === "office" || kind === "den") return "rgba(198, 136, 88, ALPHA)";
+  if (kind === "rescue" || kind === "hospital") return "rgba(222, 118, 126, ALPHA)";
+  return null;
 }
 
 function openingOrientation(tx, ty) {
@@ -6943,7 +7099,53 @@ window.render_game_to_text = () => {
 };
 
 window.audit_mission_layouts = () =>
-  JSON.stringify(availableMissions().map((mission) => ({ id: mission.id, title: mission.title, ...auditMissionLayout(mission) })));
+  JSON.stringify(
+    availableMissions().map((mission) => {
+      const parsed = parseMission(mission);
+      const roleCounts = parsed.enemies.reduce((acc, enemy) => {
+        acc[enemy.role] = (acc[enemy.role] || 0) + 1;
+        return acc;
+      }, {});
+      return {
+        id: mission.id,
+        title: mission.title,
+        enemies: parsed.enemies.length,
+        roles: roleCounts,
+        windows: parsed.windows.length,
+        crates: parsed.map.reduce((count, row) => count + row.filter((tile) => tile.type === "crate").length, 0),
+        ...auditMissionLayout(mission),
+      };
+    }),
+  );
+
+if (window.location.search.indexOf("devtools=1") >= 0) {
+  window.breachline_dev_start_mission = (id) => {
+    const mission = availableMissions().find((item) => item.id === id || item.title === id);
+    if (!mission) return false;
+    const previousCompleted = { ...state.profile.completed };
+    for (const item of baseMissions()) state.profile.completed[item.id] = state.profile.completed[item.id] || { grade: "A", dev: true };
+    startMission(mission);
+    state.profile.completed = previousCompleted;
+    return true;
+  };
+
+  window.breachline_dev_camera = (x, y, zoom) => {
+    state.camera.follow = false;
+    if (Number.isFinite(Number(zoom))) state.camera.zoom = clamp(Number(zoom), 0.72, 2.6);
+    state.camera.x = clamp(Number(x) || VIEW_W / 2, VIEW_W / 2 / state.camera.zoom, COLS * TILE - VIEW_W / 2 / state.camera.zoom);
+    state.camera.y = clamp(Number(y) || VIEW_H / 2, VIEW_H / 2 / state.camera.zoom, ROWS * TILE - VIEW_H / 2 / state.camera.zoom);
+    render();
+    return true;
+  };
+
+  window.breachline_dev_reveal_all = () => {
+    for (let y = 0; y < ROWS; y += 1) {
+      for (let x = 0; x < COLS; x += 1) state.visibility.seen.add(keyOf(x, y));
+    }
+    render();
+    return true;
+  };
+}
 
 saveProfile();
 render();
