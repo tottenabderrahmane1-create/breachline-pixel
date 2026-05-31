@@ -26,7 +26,7 @@ const loadingPercent = document.getElementById("loadingPercent");
 const homeHub = document.getElementById("homeHub");
 const radialMenu = document.getElementById("radialMenu");
 
-const ASSET_VERSION = "11";
+const ASSET_VERSION = "12";
 const aiSheet = new Image();
 aiSheet.src = `./assets/ai-generated-pixel-asset-sheet.png?v=${ASSET_VERSION}`;
 const runtimeAtlas = new Image();
@@ -88,6 +88,71 @@ const imageAssetSources = {
   weapon_m110_sass: "./assets/weapon-m110-sass.png",
   weapon_glock17: "./assets/weapon-glock17.png",
   weapon_m249_saw: "./assets/weapon-m249-saw.png",
+  tilemap_master: "./assets/tilemap-master.png",
+  tile_door_breached: "./assets/tile-door-breached.png",
+  tile_door_metal: "./assets/tile-door-metal.png",
+  tile_door_open: "./assets/tile-door-open.png",
+  tile_door_wood: "./assets/tile-door-wood.png",
+  tile_floor_bank: "./assets/tile-floor-bank.png",
+  tile_floor_catacomb: "./assets/tile-floor-catacomb.png",
+  tile_floor_clinic: "./assets/tile-floor-clinic.png",
+  tile_floor_concrete: "./assets/tile-floor-concrete.png",
+  tile_floor_dark: "./assets/tile-floor-dark.png",
+  tile_floor_garage: "./assets/tile-floor-garage.png",
+  tile_floor_market: "./assets/tile-floor-market.png",
+  tile_floor_metro: "./assets/tile-floor-metro.png",
+  tile_floor_nightclub: "./assets/tile-floor-nightclub.png",
+  tile_floor_office: "./assets/tile-floor-office.png",
+  tile_floor_residential: "./assets/tile-floor-residential.png",
+  tile_floor_rooftop: "./assets/tile-floor-rooftop.png",
+  tile_floor_server: "./assets/tile-floor-server.png",
+  tile_floor_ship: "./assets/tile-floor-ship.png",
+  tile_floor_tunnel: "./assets/tile-floor-tunnel.png",
+  tile_floor_warehouse: "./assets/tile-floor-warehouse.png",
+  tile_stairs: "./assets/tile-stairs.png",
+  tile_wall_corner_inner: "./assets/tile-wall-corner-inner.png",
+  tile_wall_corner_outer: "./assets/tile-wall-corner-outer.png",
+  tile_wall_cross: "./assets/tile-wall-cross.png",
+  tile_wall_end: "./assets/tile-wall-end.png",
+  tile_wall_exterior: "./assets/tile-wall-exterior.png",
+  tile_wall_horizontal: "./assets/tile-wall-horizontal.png",
+  tile_wall_single: "./assets/tile-wall-single.png",
+  tile_wall_t: "./assets/tile-wall-t.png",
+  tile_wall_vertical: "./assets/tile-wall-vertical.png",
+  tile_window_breached: "./assets/tile-window-breached.png",
+  tile_window: "./assets/tile-window.png",
+  prop_bank_counter: "./assets/prop-bank-counter.png",
+  prop_bar_counter: "./assets/prop-bar-counter.png",
+  prop_barrel: "./assets/prop-barrel.png",
+  prop_cargo_container: "./assets/prop-cargo-container.png",
+  prop_couch: "./assets/prop-couch.png",
+  prop_counter: "./assets/prop-counter.png",
+  prop_crate_metal: "./assets/prop-crate-metal.png",
+  prop_crate_wood: "./assets/prop-crate-wood.png",
+  prop_desk: "./assets/prop-desk.png",
+  prop_drone: "./assets/prop-drone.png",
+  prop_hospital_bed: "./assets/prop-hospital-bed.png",
+  prop_laptop: "./assets/prop-laptop.png",
+  prop_market_shelf: "./assets/prop-market-shelf.png",
+  prop_medkit: "./assets/prop-medkit.png",
+  prop_objective_case: "./assets/prop-objective-case.png",
+  prop_rail_track: "./assets/prop-rail-track.png",
+  prop_sandbag: "./assets/prop-sandbag.png",
+  prop_server_rack: "./assets/prop-server-rack.png",
+  prop_ship_console: "./assets/prop-ship-console.png",
+  prop_train_cover: "./assets/prop-train-cover.png",
+  prop_vault_table: "./assets/prop-vault-table.png",
+  prop_window_step: "./assets/prop-window-step.png",
+  decal_cable: "./assets/decal-cable.png",
+  decal_glass: "./assets/decal-glass.png",
+  decal_grime: "./assets/decal-grime.png",
+  decal_lane: "./assets/decal-lane.png",
+  decal_neon: "./assets/decal-neon.png",
+  decal_puddle: "./assets/decal-puddle.png",
+  marker_extract: "./assets/marker-extract.png",
+  vfx_flash_burst: "./assets/vfx-flash-burst.png",
+  vfx_muzzle_flash: "./assets/vfx-muzzle-flash.png",
+  vfx_smoke_puff: "./assets/vfx-smoke-puff.png",
 };
 // Append ASSET_VERSION to every standalone image URL so browser refetches when Codex
 // drops in a corrected crop. Keep imageAssetSources without the query string so the
@@ -4686,6 +4751,8 @@ function drawMap() {
       } else if (tile.type === "door") {
         if (backdropDrawn) {
           drawBackdropTileSheen(x, y, px, py, visible);
+          drawLiveOpeningTile(ctx, x, y, px, py, "door", visible);
+          continue;
         } else {
           ctx.fillStyle = colors.floor;
           ctx.fillRect(px, py, TILE, TILE);
@@ -4708,6 +4775,8 @@ function drawMap() {
       } else if (tile.type === "window") {
         if (backdropDrawn) {
           drawBackdropTileSheen(x, y, px, py, visible);
+          drawLiveOpeningTile(ctx, x, y, px, py, "window", visible);
+          continue;
         } else {
           ctx.fillStyle = colors.floor;
           ctx.fillRect(px, py, TILE, TILE);
@@ -4724,8 +4793,7 @@ function drawMap() {
       } else if (tile.type === "crate") {
         if (backdropDrawn) {
           drawBackdropTileSheen(x, y, px, py, visible);
-          ctx.fillStyle = "rgba(0,0,0,0.28)";
-          ctx.fillRect(px + 4, py + 22, TILE - 8, 5);
+          continue;
         } else {
           ctx.fillStyle = colors.floorAlt;
           ctx.fillRect(px, py, TILE, TILE);
@@ -4744,6 +4812,7 @@ function drawMap() {
       } else if (tile.type === "stairs") {
         if (backdropDrawn) {
           drawBackdropTileSheen(x, y, px, py, visible);
+          continue;
         } else {
           ctx.fillStyle = visible ? "#162624" : "#0c1413";
           ctx.fillRect(px, py, TILE, TILE);
@@ -4760,7 +4829,7 @@ function drawMap() {
           }
         }
       }
-      if (tile.type !== "wall" && (visible || seen)) drawRoomPurposeTint(x, y, px, py, visible);
+      if (!backdropDrawn && tile.type !== "wall" && (visible || seen)) drawRoomPurposeTint(x, y, px, py, visible);
       if (!visible && seen) {
         ctx.fillStyle = "rgba(9, 16, 14, 0.1)";
         ctx.fillRect(px, py, TILE, TILE);
@@ -4843,20 +4912,46 @@ function backdropRoomColor(kind) {
 
 function drawBackdropFloorTile(g, x, y, px, py, type) {
   const item = roomAtTile(x, y, state.rooms);
-  const hue = item ? item.kind : "";
-  let base = (x + y) % 2 ? "#202b27" : "#1b2522";
-  if (hue === "service" || hue === "storage" || hue === "garage" || type === "crate") base = (x + y) % 2 ? "#2c3030" : "#242b2a";
-  if (hue === "open" || hue === "platform") base = (x + y) % 2 ? "#27312a" : "#222b25";
-  if (hue === "objective" || hue === "records" || hue === "power") base = (x + y) % 2 ? "#302b22" : "#28251e";
-  if (hue === "level-2" || hue === "suite") base = (x + y) % 2 ? "#292637" : "#242331";
-  g.fillStyle = base;
+  const floor = floorTileForRoom(item, state.mission, type);
+  g.fillStyle = "#111918";
   g.fillRect(px, py, TILE, TILE);
-  g.fillStyle = "rgba(255,255,255,0.035)";
-  if ((x * 19 + y * 7) % 9 === 0) g.fillRect(px + 5, py + 6, 3, 3);
-  if ((x * 11 + y * 13) % 8 === 0) g.fillRect(px + 18, py + 21, 2, 2);
-  g.strokeStyle = "rgba(0,0,0,0.06)";
+  if (!drawCroppedTile(g, floor, px, py, 10, 1)) {
+    g.fillStyle = (x + y) % 2 ? "#202b27" : "#1b2522";
+    g.fillRect(px, py, TILE, TILE);
+  }
+  if ((x * 19 + y * 7) % 13 === 0) drawLocalImage(g, decalForRoom(item, state.mission), px + TILE / 2, py + TILE / 2, TILE, TILE, 0.28, ((x + y) % 4) * Math.PI / 2);
+  g.strokeStyle = "rgba(0,0,0,0.025)";
   g.lineWidth = 1;
   g.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+}
+
+function floorTileForRoom(item, mission, type) {
+  const kind = item ? item.kind : "";
+  const tags = mission && mission.tags ? mission.tags.join(" ") : "";
+  const id = mission && mission.id ? mission.id : "";
+  if (type === "stairs") return "tile_floor_dark";
+  if (id === "catacomb" || kind === "den" || tags.indexOf("crypt") >= 0) return "tile_floor_catacomb";
+  if (id === "greenroom" || tags.indexOf("nightclub") >= 0) return "tile_floor_nightclub";
+  if (id === "cargo_hold" || id === "dockside_relay") return "tile_floor_ship";
+  if (id === "metro_switch" || kind === "platform" || kind === "power") return "tile_floor_metro";
+  if (id === "clinic_tower" || kind === "hospital" || kind === "level-2") return "tile_floor_clinic";
+  if (id === "castiron" || kind === "foyer") return "tile_floor_bank";
+  if (id === "market_rescue" || kind === "shop" || kind === "rescue") return "tile_floor_market";
+  if (id === "server_vault" || kind === "records" || kind === "objective") return "tile_floor_server";
+  if (kind === "office" || kind === "lobby" || kind === "suite") return "tile_floor_office";
+  if (kind === "garage" || kind === "storage" || kind === "service" || type === "crate") return "tile_floor_warehouse";
+  if (id && id.indexOf("generated_") === 0) return "tile_floor_residential";
+  return "tile_floor_concrete";
+}
+
+function decalForRoom(item, mission) {
+  const kind = item ? item.kind : "";
+  const id = mission && mission.id ? mission.id : "";
+  if (id === "greenroom") return "decal_neon";
+  if (id === "catacomb" || kind === "service") return "decal_puddle";
+  if (id === "server_vault") return "decal_cable";
+  if (kind === "training" || id === "training_block") return "decal_lane";
+  return "decal_grime";
 }
 
 function drawBackdropRoomDetails(g) {
@@ -4902,41 +4997,38 @@ function drawBackdropDesk(g, x, y, w, h, color) {
 }
 
 function drawBackdropOfficeRoom(g, x, y, w, h) {
-  drawBackdropDesk(g, x + 24, y + 28, Math.min(84, w - 54), 18, "#5b5141");
-  if (w > 180) drawBackdropDesk(g, x + w - 106, y + h - 54, 76, 20, "#4f5c58");
-  if (h > 170) drawBackdropDesk(g, x + Math.max(28, w / 2 - 36), y + h / 2 - 11, 72, 22, "#514b3f");
+  drawLocalImage(g, "prop_desk", x + 52, y + 42, 58, 58, 0.95, 0);
+  if (w > 180) drawLocalImage(g, "prop_counter", x + w - 58, y + h - 48, 58, 58, 0.9, Math.PI);
+  if (h > 170) drawLocalImage(g, "prop_laptop", x + w / 2, y + h / 2, 46, 46, 0.9, 0);
 }
 
 function drawBackdropObjectiveRoom(g, x, y, w, h) {
-  drawBackdropDesk(g, x + w / 2 - 42, y + h / 2 - 18, 84, 36, "#6d5c32");
-  g.fillStyle = "rgba(231, 198, 76, 0.28)";
-  g.fillRect(x + w / 2 - 30, y + h / 2 - 10, 60, 20);
-  for (let i = 0; i < 3; i += 1) drawBackdropDesk(g, x + 22 + i * 42, y + 28, 28, h > 150 ? 86 : 52, "#303e3e");
+  const prop = state.mission && state.mission.id === "castiron" ? "prop_vault_table" : state.mission && state.mission.id === "server_vault" ? "prop_laptop" : "prop_objective_case";
+  drawLocalImage(g, prop, x + w / 2, y + h / 2, 62, 62, 0.98, 0);
+  if (state.mission && state.mission.id === "server_vault") {
+    for (let i = 0; i < Math.max(2, Math.floor(w / 78)); i += 1) drawLocalImage(g, "prop_server_rack", x + 34 + i * 54, y + 42, 44, 58, 0.9, 0);
+  }
 }
 
 function drawBackdropStorageRoom(g, x, y, w, h) {
   for (let i = 0; i < Math.max(2, Math.floor(w / 82)); i += 1) {
-    drawBackdropDesk(g, x + 18 + i * 58, y + 24, 34, h - 52, i % 2 ? "#4d5d45" : "#655338");
+    drawLocalImage(g, i % 2 ? "prop_crate_metal" : "prop_crate_wood", x + 38 + i * 58, y + 44, 42, 42, 0.92, 0);
   }
-  if (w > 170) drawBackdropDesk(g, x + w - 78, y + h - 55, 48, 30, "#794838");
+  if (w > 170) drawLocalImage(g, "prop_barrel", x + w - 48, y + h - 42, 42, 42, 0.92, 0);
 }
 
 function drawBackdropOpenRoom(g, x, y, w, h) {
-  g.fillStyle = "rgba(126, 212, 184, 0.08)";
-  for (let i = 0; i < Math.max(2, Math.floor(w / 95)); i += 1) {
-    const px = x + 34 + i * 76;
-    g.fillRect(px, y + 24, 5, h - 48);
-  }
+  const missionId = state.mission && state.mission.id ? state.mission.id : "";
   for (let i = 0; i < Math.max(1, Math.floor(w / 120)); i += 1) {
-    drawBackdropDesk(g, x + 34 + i * 92, y + h / 2 - 13, 46, 26, "#39433b");
+    const prop = missionId === "cargo_hold" ? "prop_cargo_container" : missionId === "metro_switch" ? "prop_rail_track" : missionId === "greenroom" ? "decal_neon" : "prop_sandbag";
+    drawLocalImage(g, prop, x + 44 + i * 92, y + h / 2, 52, 52, 0.88, i % 2 ? Math.PI / 2 : 0);
   }
 }
 
 function drawBackdropSoftRoom(g, x, y, w, h) {
-  drawBackdropDesk(g, x + 26, y + 30, Math.min(74, w - 52), 30, "#5b4a43");
-  if (w > 150) drawBackdropDesk(g, x + w - 100, y + h - 66, 72, 34, "#4b5664");
-  g.fillStyle = "rgba(180, 205, 216, 0.08)";
-  g.fillRect(x + w / 2 - 34, y + h / 2 - 18, 68, 36);
+  const bed = state.mission && state.mission.id === "clinic_tower";
+  drawLocalImage(g, bed ? "prop_hospital_bed" : "prop_couch", x + 56, y + 48, 58, 58, 0.93, 0);
+  if (w > 150) drawLocalImage(g, "prop_desk", x + w - 58, y + h - 48, 52, 52, 0.88, Math.PI);
 }
 
 function drawBackdropWallTile(g, x, y, px, py) {
@@ -4944,7 +5036,7 @@ function drawBackdropWallTile(g, x, y, px, py) {
   const s = wallVisualConnects(x, y + 1);
   const e = wallVisualConnects(x + 1, y);
   const w = wallVisualConnects(x - 1, y);
-  const piece = wallPieceFor(n, e, s, w);
+  const piece = tileWallPieceFor(n, e, s, w);
   g.fillStyle = "#111716";
   g.fillRect(px, py, TILE, TILE);
   if (!drawLocalImage(g, piece.name, px + TILE / 2, py + TILE / 2, TILE + 8, TILE + 8, 1, piece.angle)) {
@@ -4959,8 +5051,10 @@ function drawBackdropWallTile(g, x, y, px, py) {
 
 function drawBackdropOpening(g, x, y, px, py, kind) {
   const vertical = openingOrientation(x, y) === "vertical";
+  const key = kind === "window" ? "tile_window" : (x + y) % 3 === 0 ? "tile_door_metal" : "tile_door_wood";
   g.fillStyle = "#1f2926";
   g.fillRect(px, py, TILE, TILE);
+  if (drawLocalImage(g, key, px + TILE / 2, py + TILE / 2, TILE + 7, TILE + 7, 1, vertical ? Math.PI / 2 : 0)) return;
   if (vertical) {
     g.fillStyle = kind === "window" ? "#718a88" : "#5c5244";
     g.fillRect(px, py + 3, 6, TILE - 6);
@@ -4985,22 +5079,70 @@ function drawBackdropOpening(g, x, y, px, py, kind) {
 }
 
 function drawBackdropProp(g, x, y, px, py) {
-  const sprite = (x + y) % 2 ? "crate" : "metal_crate";
-  if (loadedImage(runtimeAtlas) && sprite in atlasSprites) {
-    const cell = atlasCell(sprite);
-    g.drawImage(runtimeAtlas, cell.sx, cell.sy, ATLAS_CELL, ATLAS_CELL, px - 2, py - 2, TILE + 4, TILE + 4);
-    return;
-  }
-  g.fillStyle = "#6e5a38";
-  g.fillRect(px + 4, py + 5, TILE - 8, TILE - 10);
+  const prop = propForTile(x, y, roomAtTile(x, y, state.rooms), state.mission);
+  if (drawLocalImage(g, prop, px + TILE / 2, py + TILE / 2, TILE + 8, TILE + 8, 1, 0)) return;
+  drawLocalImage(g, (x + y) % 2 ? "prop_crate_wood" : "prop_crate_metal", px + TILE / 2, py + TILE / 2, TILE + 6, TILE + 6, 1, 0);
 }
 
 function drawBackdropStairs(g, px, py) {
-  if (drawLocalImage(g, "stairs", px + TILE / 2, py + TILE / 2, TILE + 5, TILE + 5, 1, 0)) return;
+  if (drawLocalImage(g, "tile_stairs", px + TILE / 2, py + TILE / 2, TILE + 7, TILE + 7, 1, 0)) return;
   g.fillStyle = "#203432";
   g.fillRect(px, py, TILE, TILE);
   g.fillStyle = "#79ccd0";
   for (let i = 0; i < 4; i += 1) g.fillRect(px + 5 + i * 2, py + 7 + i * 5, TILE - 10 - i * 4, 3);
+}
+
+function propForTile(x, y, item, mission) {
+  const kind = item ? item.kind : "";
+  const id = mission && mission.id ? mission.id : "";
+  if (id === "server_vault" || kind === "records") return "prop_server_rack";
+  if (id === "clinic_tower") return "prop_hospital_bed";
+  if (id === "market_rescue" || kind === "shop") return "prop_market_shelf";
+  if (id === "greenroom") return (x + y) % 2 ? "prop_bar_counter" : "prop_couch";
+  if (id === "castiron") return (x + y) % 2 ? "prop_bank_counter" : "prop_vault_table";
+  if (id === "cargo_hold") return "prop_cargo_container";
+  if (id === "metro_switch") return (x + y) % 2 ? "prop_train_cover" : "prop_rail_track";
+  if (kind === "office" || kind === "lobby") return "prop_desk";
+  return (x + y) % 2 ? "prop_crate_wood" : "prop_crate_metal";
+}
+
+function tileWallPieceFor(n, e, s, w) {
+  const count = (n ? 1 : 0) + (e ? 1 : 0) + (s ? 1 : 0) + (w ? 1 : 0);
+  if (count === 0) return { name: "tile_wall_single", angle: 0 };
+  if (count === 1) {
+    if (n) return { name: "tile_wall_end", angle: 0 };
+    if (e) return { name: "tile_wall_end", angle: Math.PI / 2 };
+    if (s) return { name: "tile_wall_end", angle: Math.PI };
+    return { name: "tile_wall_end", angle: -Math.PI / 2 };
+  }
+  if (count === 2) {
+    if (n && s) return { name: "tile_wall_vertical", angle: 0 };
+    if (e && w) return { name: "tile_wall_horizontal", angle: 0 };
+    if (n && e) return { name: "tile_wall_corner_outer", angle: 0 };
+    if (e && s) return { name: "tile_wall_corner_outer", angle: Math.PI / 2 };
+    if (s && w) return { name: "tile_wall_corner_outer", angle: Math.PI };
+    return { name: "tile_wall_corner_outer", angle: -Math.PI / 2 };
+  }
+  if (count === 3) {
+    if (!n) return { name: "tile_wall_t", angle: 0 };
+    if (!e) return { name: "tile_wall_t", angle: Math.PI / 2 };
+    if (!s) return { name: "tile_wall_t", angle: Math.PI };
+    return { name: "tile_wall_t", angle: -Math.PI / 2 };
+  }
+  return { name: "tile_wall_cross", angle: 0 };
+}
+
+function drawLiveOpeningTile(g, x, y, px, py, kind, visible) {
+  const angle = openingOrientation(x, y) === "vertical" ? Math.PI / 2 : 0;
+  let key = "tile_door_wood";
+  if (kind === "window") {
+    const win = windowAt(x, y);
+    key = win && win.breached ? "tile_window_breached" : "tile_window";
+  } else {
+    const door = doorAt(x, y);
+    key = door && door.open ? "tile_door_open" : (x + y) % 3 === 0 ? "tile_door_metal" : "tile_door_wood";
+  }
+  drawLocalImage(g, key, px + TILE / 2, py + TILE / 2, TILE + 7, TILE + 7, visible ? 1 : 0.42, angle);
 }
 
 function drawBackdropVignette(g) {
@@ -5019,6 +5161,19 @@ function drawLocalImage(g, name, x, y, width, height, alpha, angle) {
   g.rotate(angle || 0);
   g.globalAlpha *= alpha == null ? 1 : alpha;
   g.drawImage(img, -width / 2, -height / 2, width, height);
+  g.restore();
+  return true;
+}
+
+function drawCroppedTile(g, name, px, py, crop, alpha) {
+  const img = imageAssets[name];
+  if (!loadedImage(img)) return false;
+  const inset = crop || 0;
+  const sw = Math.max(1, img.naturalWidth - inset * 2);
+  const sh = Math.max(1, img.naturalHeight - inset * 2);
+  g.save();
+  g.globalAlpha *= alpha == null ? 1 : alpha;
+  g.drawImage(img, inset, inset, sw, sh, px, py, TILE, TILE);
   g.restore();
   return true;
 }
