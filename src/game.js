@@ -26,7 +26,7 @@ const loadingPercent = document.getElementById("loadingPercent");
 const homeHub = document.getElementById("homeHub");
 const radialMenu = document.getElementById("radialMenu");
 
-const ASSET_VERSION = "10";
+const ASSET_VERSION = "11";
 const aiSheet = new Image();
 aiSheet.src = `./assets/ai-generated-pixel-asset-sheet.png?v=${ASSET_VERSION}`;
 const runtimeAtlas = new Image();
@@ -62,6 +62,32 @@ const imageAssetSources = {
   wall_corner: "./assets/wall-corner.png",
   wall_t: "./assets/wall-t.png",
   wall_cross: "./assets/wall-cross.png",
+  campaign_armory_sheet: "./assets/imagegen-campaign-armory-sheet.png",
+  mission_training_block: "./assets/mission-training-block.png",
+  mission_catacomb: "./assets/mission-catacomb.png",
+  mission_embassy_annex: "./assets/mission-embassy-annex.png",
+  mission_market_rescue: "./assets/mission-market-rescue.png",
+  mission_greenroom: "./assets/mission-greenroom.png",
+  mission_yardline: "./assets/mission-yardline.png",
+  mission_server_vault: "./assets/mission-server-vault.png",
+  mission_steelhouse: "./assets/mission-steelhouse.png",
+  mission_cargo_hold: "./assets/mission-cargo-hold.png",
+  mission_metro_switch: "./assets/mission-metro-switch.png",
+  mission_clinic_tower: "./assets/mission-clinic-tower.png",
+  mission_night_depot: "./assets/mission-night-depot.png",
+  mission_castiron: "./assets/mission-castiron.png",
+  mission_vantage_point: "./assets/mission-vantage-point.png",
+  mission_penthouse: "./assets/mission-penthouse.png",
+  mission_rowhouse: "./assets/mission-rowhouse.png",
+  weapon_m4a1: "./assets/weapon-m4a1.png",
+  weapon_hk416: "./assets/weapon-hk416.png",
+  weapon_mp5a5: "./assets/weapon-mp5a5.png",
+  weapon_mp7: "./assets/weapon-mp7.png",
+  weapon_ak74m: "./assets/weapon-ak74m.png",
+  weapon_benelli_m4: "./assets/weapon-benelli-m4.png",
+  weapon_m110_sass: "./assets/weapon-m110-sass.png",
+  weapon_glock17: "./assets/weapon-glock17.png",
+  weapon_m249_saw: "./assets/weapon-m249-saw.png",
 };
 // Append ASSET_VERSION to every standalone image URL so browser refetches when Codex
 // drops in a corrected crop. Keep imageAssetSources without the query string so the
@@ -72,6 +98,7 @@ for (const key in imageAssetSources) {
   img.src = `${imageAssetSources[key]}?v=${ASSET_VERSION}`;
   imageAssets[key] = img;
 }
+const mapBackdropCache = { key: "", canvas: null };
 // Master-sheet fallback slice coords. Used only if the standalone file fails to load.
 const uiSprites = {
   logo: { x: 0, y: 0, w: 96, h: 96 },
@@ -334,6 +361,34 @@ const weaponAliases = {
 
 const weaponOrder = ["m4a1", "hk416", "mp5a5", "mp7", "ak74m", "benelli_m4", "m110_sass", "glock17", "m249_saw"];
 
+const defaultUnlockedWeapons = ["m4a1", "mp5a5", "benelli_m4", "m110_sass", "glock17"];
+
+const weaponUnlockDefs = {
+  hk416: { stars: 4, credits: 60, label: "4 stars + 60 credits" },
+  mp7: { stars: 3, credits: 45, label: "3 stars + 45 credits" },
+  ak74m: { stars: 5, credits: 50, label: "5 stars + 50 credits" },
+  m249_saw: { stars: 7, credits: 90, label: "7 stars + 90 credits" },
+};
+
+const missionThumbnailKeys = {
+  training_block: "mission_training_block",
+  catacomb: "mission_catacomb",
+  embassy_annex: "mission_embassy_annex",
+  market_rescue: "mission_market_rescue",
+  greenroom: "mission_greenroom",
+  yardline: "mission_yardline",
+  server_vault: "mission_server_vault",
+  steelhouse: "mission_steelhouse",
+  cargo_hold: "mission_cargo_hold",
+  metro_switch: "mission_metro_switch",
+  clinic_tower: "mission_clinic_tower",
+  night_depot: "mission_night_depot",
+  castiron: "mission_castiron",
+  vantage_point: "mission_vantage_point",
+  penthouse: "mission_penthouse",
+  dockside_relay: "mission_cargo_hold",
+};
+
 const planActionDefs = {
   smoke: { label: "Smoke", icon: "smoke_icon", targeted: true, inventory: "smoke" },
   flash: { label: "Flash", icon: "flash_icon", targeted: true, inventory: "flash" },
@@ -543,6 +598,7 @@ function loadProfile() {
     addons: { dockyard_pack: true },
     customMissions: [],
     lastMissionId: "training_block",
+    unlockedWeapons: makeDefaultUnlockedWeapons(),
     armory: operatorTemplates.reduce((acc, unit) => {
       acc[unit.id] = { gear: unit.gear, xp: 0, wounds: 0 };
       return acc;
@@ -563,6 +619,8 @@ function loadProfile() {
     }
     parsed.customMissions = parsed.customMissions || [];
     parsed.lastMissionId = parsed.lastMissionId || "training_block";
+    parsed.unlockedWeapons = parsed.unlockedWeapons || {};
+    for (const id of defaultUnlockedWeapons) parsed.unlockedWeapons[id] = true;
     parsed.addons = parsed.addons || {};
     parsed.settings = parsed.settings || { sfx: true };
     parsed.stats = parsed.stats || { missions: 0, rescues: 0, clears: 0 };
@@ -574,7 +632,126 @@ function loadProfile() {
 
 function saveProfile() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.profile));
-  profileLine.textContent = `${state.profile.credits} credits | ${Object.keys(state.profile.completed).length} ops complete`;
+  profileLine.textContent = `${state.profile.credits} credits | ${totalStars(state.profile)} stars | ${completionCount(state.profile)} ops complete`;
+}
+
+function makeDefaultUnlockedWeapons() {
+  return defaultUnlockedWeapons.reduce((acc, id) => {
+    acc[id] = true;
+    return acc;
+  }, {});
+}
+
+function completionRecord(profile, missionId) {
+  const completed = profile && profile.completed ? profile.completed : {};
+  return completed[missionId] || null;
+}
+
+function bestGradeForMission(profile, missionId) {
+  const record = completionRecord(profile, missionId);
+  if (record && typeof record === "object" && record.grade) return record.grade;
+  if (profile && profile.bestGrades && profile.bestGrades[missionId]) return profile.bestGrades[missionId];
+  return record ? "C" : "";
+}
+
+function starsForGrade(grade) {
+  if (grade === "A") return 3;
+  if (grade === "B") return 2;
+  if (grade === "C" || grade === "D") return 1;
+  return 0;
+}
+
+function completionStars(profile, missionId) {
+  const record = completionRecord(profile, missionId);
+  if (!record) return 0;
+  if (typeof record === "object" && typeof record.stars === "number") return record.stars;
+  return starsForGrade(bestGradeForMission(profile, missionId));
+}
+
+function totalStars(profile) {
+  const completed = profile && profile.completed ? profile.completed : {};
+  return Object.keys(completed).reduce((sum, id) => sum + completionStars(profile, id), 0);
+}
+
+function completionCount(profile) {
+  const completed = profile && profile.completed ? profile.completed : {};
+  return Object.keys(completed).filter((id) => Boolean(completed[id])).length;
+}
+
+function missionReward(mission, grade) {
+  const difficulty = mission && mission.difficulty ? mission.difficulty : 1;
+  return 30 + difficulty * 15 + (grade === "A" ? 20 : 0);
+}
+
+function recordMissionCompletion(profile, mission, grade, time, reward) {
+  const stars = starsForGrade(grade);
+  const previous = completionRecord(profile, mission.id);
+  const previousStars = completionStars(profile, mission.id);
+  const previousGrade = bestGradeForMission(profile, mission.id) || "F";
+  const keepPrevious = previous && previousStars > stars;
+  const bestGrade = betterGrade(previousGrade, grade);
+  profile.completed[mission.id] = keepPrevious
+    ? previous
+    : {
+        grade,
+        stars,
+        time: Number(time.toFixed(1)),
+        reward,
+        at: new Date().toISOString(),
+      };
+  profile.bestGrades[mission.id] = bestGrade;
+}
+
+function weaponUnlockStatus(id, profile) {
+  const unlocked = profile && profile.unlockedWeapons && profile.unlockedWeapons[id];
+  if (unlocked || defaultUnlockedWeapons.indexOf(id) >= 0) return { unlocked: true, purchasable: false, reason: "" };
+  const req = weaponUnlockDefs[id];
+  if (!req) return { unlocked: true, purchasable: false, reason: "" };
+  const stars = totalStars(profile);
+  const credits = profile && typeof profile.credits === "number" ? profile.credits : 0;
+  const starsOk = stars >= req.stars;
+  const creditsOk = credits >= req.credits;
+  return {
+    unlocked: false,
+    purchasable: starsOk && creditsOk,
+    reason: req.label,
+    missing: `${Math.max(0, req.stars - stars)} stars, ${Math.max(0, req.credits - credits)} credits`,
+    credits: req.credits,
+    stars: req.stars,
+  };
+}
+
+function nextWeaponUnlock(profile) {
+  const locked = weaponOrder
+    .map((id) => ({ id, status: weaponUnlockStatus(id, profile) }))
+    .filter((item) => !item.status.unlocked)
+    .sort((a, b) => {
+      const aReq = weaponUnlockDefs[a.id] || { stars: 0, credits: 0 };
+      const bReq = weaponUnlockDefs[b.id] || { stars: 0, credits: 0 };
+      return aReq.stars - bReq.stars || aReq.credits - bReq.credits;
+    });
+  return locked.length ? locked[0] : null;
+}
+
+function assetImageMarkup(key, className, alt) {
+  const src = imageAssetSources[key];
+  if (!src) return "";
+  return `<img class="${esc(className || "")}" src="${src}?v=${ASSET_VERSION}" alt="${esc(alt || "")}" />`;
+}
+
+function missionThumbnailKey(mission) {
+  if (!mission) return "mission_training_block";
+  if (missionThumbnailKeys[mission.id]) return missionThumbnailKeys[mission.id];
+  if (mission.id && mission.id.indexOf("generated_") === 0) return "mission_rowhouse";
+  const tags = mission.tags || [];
+  if (tags.indexOf("dock") >= 0 || tags.indexOf("ship") >= 0) return "mission_cargo_hold";
+  if (tags.indexOf("clinic") >= 0) return "mission_clinic_tower";
+  if (tags.indexOf("bank") >= 0) return "mission_castiron";
+  return "mission_rowhouse";
+}
+
+function weaponIconKey(id) {
+  return `weapon_${normalizeWeaponId(id).replace(/_/g, "_")}`;
 }
 
 function makeEditorState() {
@@ -4156,7 +4333,7 @@ function finishMission(success, reason) {
   const downed = state.operators.filter((op) => op.down).length;
   const rescued = state.civilians.filter((civ) => civ.extracted).length;
   const totalCiv = state.civilians.length;
-  const reward = success ? 30 + (state.mission.difficulty || 1) * 15 + (grade === "A" ? 20 : 0) : 0;
+  const reward = success ? missionReward(state.mission, grade) : 0;
   state.outcome = {
     success,
     reason,
@@ -4173,9 +4350,7 @@ function finishMission(success, reason) {
     },
   };
   if (success) {
-    state.profile.completed[state.mission.id] = true;
-    const previous = state.profile.bestGrades[state.mission.id] || "F";
-    state.profile.bestGrades[state.mission.id] = betterGrade(previous, grade);
+    recordMissionCompletion(state.profile, state.mission, grade, state.missionTime, reward);
     state.profile.credits += reward;
     state.profile.stats.missions += 1;
     state.profile.stats.clears += 1;
@@ -4473,8 +4648,11 @@ function renderMission() {
 }
 
 function drawMap() {
-  ctx.fillStyle = "#141a18";
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  const backdropDrawn = drawGeneratedMapBackdrop();
+  if (!backdropDrawn) {
+    ctx.fillStyle = "#141a18";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
   for (let y = 0; y < ROWS; y += 1) {
     for (let x = 0; x < COLS; x += 1) {
       const tile = mapTile(x, y);
@@ -4493,17 +4671,26 @@ function drawMap() {
         continue;
       }
       if (tile.type === "floor") {
-        ctx.fillStyle = (x + y) % 2 ? colors.floor : colors.floorAlt;
-        ctx.fillRect(px, py, TILE, TILE);
-        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.22);
-        ctx.fillStyle = "rgba(255,255,255,0.025)";
-        if ((x * 19 + y * 7) % 9 === 0) ctx.fillRect(px + 5, py + 6, 4, 4);
+        if (backdropDrawn) {
+          drawBackdropTileSheen(x, y, px, py, visible);
+        } else {
+          ctx.fillStyle = (x + y) % 2 ? colors.floor : colors.floorAlt;
+          ctx.fillRect(px, py, TILE, TILE);
+          drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.22);
+          ctx.fillStyle = "rgba(255,255,255,0.025)";
+          if ((x * 19 + y * 7) % 9 === 0) ctx.fillRect(px + 5, py + 6, 4, 4);
+        }
       } else if (tile.type === "wall") {
-        drawWallTile(x, y, px, py, visible || revealWall, seen);
+        if (backdropDrawn) drawBackdropWallOverlay(x, y, px, py, visible || revealWall, seen);
+        else drawWallTile(x, y, px, py, visible || revealWall, seen);
       } else if (tile.type === "door") {
-        ctx.fillStyle = colors.floor;
-        ctx.fillRect(px, py, TILE, TILE);
-        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.16);
+        if (backdropDrawn) {
+          drawBackdropTileSheen(x, y, px, py, visible);
+        } else {
+          ctx.fillStyle = colors.floor;
+          ctx.fillRect(px, py, TILE, TILE);
+          drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.16);
+        }
         const door = doorAt(x, y);
         drawOpeningFrame(x, y, px, py, "door", door && door.open);
         if (drawAtlasSprite(door && door.open ? "door_breach" : "door_wood", px + TILE / 2, py + TILE / 2, TILE + 8, 0, 0.95)) {
@@ -4519,9 +4706,13 @@ function drawMap() {
           ctx.fillRect(px + 22, py + 15, 3, 3);
         }
       } else if (tile.type === "window") {
-        ctx.fillStyle = colors.floor;
-        ctx.fillRect(px, py, TILE, TILE);
-        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.16);
+        if (backdropDrawn) {
+          drawBackdropTileSheen(x, y, px, py, visible);
+        } else {
+          ctx.fillStyle = colors.floor;
+          ctx.fillRect(px, py, TILE, TILE);
+          drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.16);
+        }
         const win = windowAt(x, y);
         drawOpeningFrame(x, y, px, py, "window", win && win.breached);
         if (win && win.breached && drawGeneratedAsset("window_breach", px + TILE / 2, py + TILE / 2, TILE + 8, visible ? 0.95 : 0.45)) continue;
@@ -4531,9 +4722,15 @@ function drawMap() {
         ctx.fillStyle = colors.window;
         ctx.fillRect(px + 4, py + 12, TILE - 8, 8);
       } else if (tile.type === "crate") {
-        ctx.fillStyle = colors.floorAlt;
-        ctx.fillRect(px, py, TILE, TILE);
-        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.14);
+        if (backdropDrawn) {
+          drawBackdropTileSheen(x, y, px, py, visible);
+          ctx.fillStyle = "rgba(0,0,0,0.28)";
+          ctx.fillRect(px + 4, py + 22, TILE - 8, 5);
+        } else {
+          ctx.fillStyle = colors.floorAlt;
+          ctx.fillRect(px, py, TILE, TILE);
+          drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.14);
+        }
         if (drawAtlasSprite((x + y) % 2 ? "crate" : "metal_crate", px + TILE / 2, py + TILE / 2, TILE + 4, 0, 0.95)) continue;
         ctx.fillStyle = colors.crate;
         ctx.fillRect(px + 4, py + 5, TILE - 8, TILE - 10);
@@ -4545,9 +4742,13 @@ function drawMap() {
         ctx.lineTo(px + TILE - 7, py + TILE - 7);
         ctx.stroke();
       } else if (tile.type === "stairs") {
-        ctx.fillStyle = visible ? "#162624" : "#0c1413";
-        ctx.fillRect(px, py, TILE, TILE);
-        drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.12);
+        if (backdropDrawn) {
+          drawBackdropTileSheen(x, y, px, py, visible);
+        } else {
+          ctx.fillStyle = visible ? "#162624" : "#0c1413";
+          ctx.fillRect(px, py, TILE, TILE);
+          drawAtlasSprite(spriteForFloor(x, y), px + TILE / 2, py + TILE / 2, TILE + 2, 0, 0.12);
+        }
         if (!drawGeneratedAsset("stairs", px + TILE / 2, py + TILE / 2, TILE + 4, visible ? 0.95 : 0.42)) {
           const step = visible ? "#9bf0f3" : "#3d6669";
           const stepDeep = visible ? "#62b6a6" : "#26464a";
@@ -4565,6 +4766,281 @@ function drawMap() {
         ctx.fillRect(px, py, TILE, TILE);
       }
     }
+  }
+}
+
+function drawGeneratedMapBackdrop() {
+  if (!state.mission) return false;
+  const key = `${state.mission.id}:${ASSET_VERSION}`;
+  if (!mapBackdropCache.canvas || mapBackdropCache.key !== key) {
+    mapBackdropCache.key = key;
+    mapBackdropCache.canvas = buildMissionBackdropCanvas();
+  }
+  if (!mapBackdropCache.canvas) return false;
+  ctx.drawImage(mapBackdropCache.canvas, 0, 0);
+  return true;
+}
+
+function buildMissionBackdropCanvas() {
+  if (typeof document === "undefined" || !state.map || !state.map.length) return null;
+  const c = document.createElement("canvas");
+  c.width = VIEW_W;
+  c.height = VIEW_H;
+  const g = c.getContext("2d");
+  if (!g) return null;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#070b0c";
+  g.fillRect(0, 0, VIEW_W, VIEW_H);
+  drawBackdropRoomMasses(g);
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const tile = mapTile(x, y);
+      const px = x * TILE;
+      const py = y * TILE;
+      if (tile.type !== "wall") drawBackdropFloorTile(g, x, y, px, py, tile.type);
+    }
+  }
+  drawBackdropRoomDetails(g);
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const tile = mapTile(x, y);
+      const px = x * TILE;
+      const py = y * TILE;
+      if (tile.type === "wall") drawBackdropWallTile(g, x, y, px, py);
+    }
+  }
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const tile = mapTile(x, y);
+      const px = x * TILE;
+      const py = y * TILE;
+      if (tile.type === "door") drawBackdropOpening(g, x, y, px, py, "door");
+      if (tile.type === "window") drawBackdropOpening(g, x, y, px, py, "window");
+      if (tile.type === "crate") drawBackdropProp(g, x, y, px, py);
+      if (tile.type === "stairs") drawBackdropStairs(g, px, py);
+    }
+  }
+  drawBackdropVignette(g);
+  return c;
+}
+
+function drawBackdropRoomMasses(g) {
+  for (const item of state.rooms || []) {
+    const color = backdropRoomColor(item.kind);
+    g.fillStyle = color;
+    g.fillRect(item.x * TILE + 4, item.y * TILE + 4, item.w * TILE - 8, item.h * TILE - 8);
+  }
+}
+
+function backdropRoomColor(kind) {
+  if (kind === "objective" || kind === "records" || kind === "power") return "rgba(101, 85, 44, 0.22)";
+  if (kind === "open" || kind === "platform") return "rgba(52, 72, 58, 0.22)";
+  if (kind === "service" || kind === "storage" || kind === "garage" || kind === "shed") return "rgba(72, 79, 82, 0.2)";
+  if (kind === "level-2" || kind === "suite") return "rgba(73, 60, 94, 0.2)";
+  if (kind === "rescue" || kind === "hospital") return "rgba(94, 58, 62, 0.2)";
+  return "rgba(55, 68, 63, 0.22)";
+}
+
+function drawBackdropFloorTile(g, x, y, px, py, type) {
+  const item = roomAtTile(x, y, state.rooms);
+  const hue = item ? item.kind : "";
+  let base = (x + y) % 2 ? "#202b27" : "#1b2522";
+  if (hue === "service" || hue === "storage" || hue === "garage" || type === "crate") base = (x + y) % 2 ? "#2c3030" : "#242b2a";
+  if (hue === "open" || hue === "platform") base = (x + y) % 2 ? "#27312a" : "#222b25";
+  if (hue === "objective" || hue === "records" || hue === "power") base = (x + y) % 2 ? "#302b22" : "#28251e";
+  if (hue === "level-2" || hue === "suite") base = (x + y) % 2 ? "#292637" : "#242331";
+  g.fillStyle = base;
+  g.fillRect(px, py, TILE, TILE);
+  g.fillStyle = "rgba(255,255,255,0.035)";
+  if ((x * 19 + y * 7) % 9 === 0) g.fillRect(px + 5, py + 6, 3, 3);
+  if ((x * 11 + y * 13) % 8 === 0) g.fillRect(px + 18, py + 21, 2, 2);
+  g.strokeStyle = "rgba(0,0,0,0.06)";
+  g.lineWidth = 1;
+  g.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
+}
+
+function drawBackdropRoomDetails(g) {
+  for (const item of state.rooms || []) {
+    const x = item.x * TILE;
+    const y = item.y * TILE;
+    const w = item.w * TILE;
+    const h = item.h * TILE;
+    g.save();
+    g.beginPath();
+    g.rect(x + 6, y + 6, w - 12, h - 12);
+    g.clip();
+    drawBackdropRoomBorder(g, x, y, w, h);
+    const kind = item.kind || "room";
+    if (kind === "objective" || kind === "records" || kind === "power") drawBackdropObjectiveRoom(g, x, y, w, h);
+    else if (kind === "service" || kind === "storage" || kind === "garage" || kind === "shed") drawBackdropStorageRoom(g, x, y, w, h);
+    else if (kind === "open" || kind === "platform") drawBackdropOpenRoom(g, x, y, w, h);
+    else if (kind === "level-2" || kind === "suite" || kind === "rescue" || kind === "hospital") drawBackdropSoftRoom(g, x, y, w, h);
+    else drawBackdropOfficeRoom(g, x, y, w, h);
+    g.restore();
+  }
+}
+
+function drawBackdropRoomBorder(g, x, y, w, h) {
+  g.strokeStyle = "rgba(210, 226, 214, 0.08)";
+  g.lineWidth = 2;
+  g.strokeRect(x + 8.5, y + 8.5, w - 17, h - 17);
+  g.strokeStyle = "rgba(0,0,0,0.28)";
+  g.lineWidth = 1;
+  g.strokeRect(x + 13.5, y + 13.5, w - 27, h - 27);
+}
+
+function drawBackdropDesk(g, x, y, w, h, color) {
+  g.fillStyle = "rgba(0,0,0,0.26)";
+  g.fillRect(x + 3, y + h - 2, w, 5);
+  g.fillStyle = color;
+  g.fillRect(x, y, w, h);
+  g.fillStyle = "rgba(255,255,255,0.08)";
+  g.fillRect(x + 3, y + 3, w - 6, 3);
+  g.strokeStyle = "rgba(0,0,0,0.38)";
+  g.lineWidth = 2;
+  g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+}
+
+function drawBackdropOfficeRoom(g, x, y, w, h) {
+  drawBackdropDesk(g, x + 24, y + 28, Math.min(84, w - 54), 18, "#5b5141");
+  if (w > 180) drawBackdropDesk(g, x + w - 106, y + h - 54, 76, 20, "#4f5c58");
+  if (h > 170) drawBackdropDesk(g, x + Math.max(28, w / 2 - 36), y + h / 2 - 11, 72, 22, "#514b3f");
+}
+
+function drawBackdropObjectiveRoom(g, x, y, w, h) {
+  drawBackdropDesk(g, x + w / 2 - 42, y + h / 2 - 18, 84, 36, "#6d5c32");
+  g.fillStyle = "rgba(231, 198, 76, 0.28)";
+  g.fillRect(x + w / 2 - 30, y + h / 2 - 10, 60, 20);
+  for (let i = 0; i < 3; i += 1) drawBackdropDesk(g, x + 22 + i * 42, y + 28, 28, h > 150 ? 86 : 52, "#303e3e");
+}
+
+function drawBackdropStorageRoom(g, x, y, w, h) {
+  for (let i = 0; i < Math.max(2, Math.floor(w / 82)); i += 1) {
+    drawBackdropDesk(g, x + 18 + i * 58, y + 24, 34, h - 52, i % 2 ? "#4d5d45" : "#655338");
+  }
+  if (w > 170) drawBackdropDesk(g, x + w - 78, y + h - 55, 48, 30, "#794838");
+}
+
+function drawBackdropOpenRoom(g, x, y, w, h) {
+  g.fillStyle = "rgba(126, 212, 184, 0.08)";
+  for (let i = 0; i < Math.max(2, Math.floor(w / 95)); i += 1) {
+    const px = x + 34 + i * 76;
+    g.fillRect(px, y + 24, 5, h - 48);
+  }
+  for (let i = 0; i < Math.max(1, Math.floor(w / 120)); i += 1) {
+    drawBackdropDesk(g, x + 34 + i * 92, y + h / 2 - 13, 46, 26, "#39433b");
+  }
+}
+
+function drawBackdropSoftRoom(g, x, y, w, h) {
+  drawBackdropDesk(g, x + 26, y + 30, Math.min(74, w - 52), 30, "#5b4a43");
+  if (w > 150) drawBackdropDesk(g, x + w - 100, y + h - 66, 72, 34, "#4b5664");
+  g.fillStyle = "rgba(180, 205, 216, 0.08)";
+  g.fillRect(x + w / 2 - 34, y + h / 2 - 18, 68, 36);
+}
+
+function drawBackdropWallTile(g, x, y, px, py) {
+  const n = wallVisualConnects(x, y - 1);
+  const s = wallVisualConnects(x, y + 1);
+  const e = wallVisualConnects(x + 1, y);
+  const w = wallVisualConnects(x - 1, y);
+  const piece = wallPieceFor(n, e, s, w);
+  g.fillStyle = "#111716";
+  g.fillRect(px, py, TILE, TILE);
+  if (!drawLocalImage(g, piece.name, px + TILE / 2, py + TILE / 2, TILE + 8, TILE + 8, 1, piece.angle)) {
+    g.fillStyle = "#6d746a";
+    g.fillRect(px + 4, py + 4, TILE - 8, TILE - 8);
+    g.fillStyle = "#343b36";
+    g.fillRect(px + 4, py + TILE - 10, TILE - 8, 6);
+  }
+  g.fillStyle = "rgba(255,255,255,0.06)";
+  if ((x * 17 + y * 23) % 5 === 0) g.fillRect(px + 7, py + 7, 4, 2);
+}
+
+function drawBackdropOpening(g, x, y, px, py, kind) {
+  const vertical = openingOrientation(x, y) === "vertical";
+  g.fillStyle = "#1f2926";
+  g.fillRect(px, py, TILE, TILE);
+  if (vertical) {
+    g.fillStyle = kind === "window" ? "#718a88" : "#5c5244";
+    g.fillRect(px, py + 3, 6, TILE - 6);
+    g.fillRect(px + TILE - 6, py + 3, 6, TILE - 6);
+    g.fillStyle = kind === "window" ? "#55a6b1" : "#8a653d";
+    g.fillRect(px + 8, py + 7, TILE - 16, TILE - 14);
+  } else {
+    g.fillStyle = kind === "window" ? "#718a88" : "#5c5244";
+    g.fillRect(px + 3, py, TILE - 6, 6);
+    g.fillRect(px + 3, py + TILE - 6, TILE - 6, 6);
+    g.fillStyle = kind === "window" ? "#55a6b1" : "#8a653d";
+    g.fillRect(px + 7, py + 8, TILE - 14, TILE - 16);
+  }
+  if (kind === "window") {
+    g.strokeStyle = "rgba(220,250,255,0.7)";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(px + 9, py + 22);
+    g.lineTo(px + 21, py + 10);
+    g.stroke();
+  }
+}
+
+function drawBackdropProp(g, x, y, px, py) {
+  const sprite = (x + y) % 2 ? "crate" : "metal_crate";
+  if (loadedImage(runtimeAtlas) && sprite in atlasSprites) {
+    const cell = atlasCell(sprite);
+    g.drawImage(runtimeAtlas, cell.sx, cell.sy, ATLAS_CELL, ATLAS_CELL, px - 2, py - 2, TILE + 4, TILE + 4);
+    return;
+  }
+  g.fillStyle = "#6e5a38";
+  g.fillRect(px + 4, py + 5, TILE - 8, TILE - 10);
+}
+
+function drawBackdropStairs(g, px, py) {
+  if (drawLocalImage(g, "stairs", px + TILE / 2, py + TILE / 2, TILE + 5, TILE + 5, 1, 0)) return;
+  g.fillStyle = "#203432";
+  g.fillRect(px, py, TILE, TILE);
+  g.fillStyle = "#79ccd0";
+  for (let i = 0; i < 4; i += 1) g.fillRect(px + 5 + i * 2, py + 7 + i * 5, TILE - 10 - i * 4, 3);
+}
+
+function drawBackdropVignette(g) {
+  const gradient = g.createRadialGradient(VIEW_W / 2, VIEW_H / 2, 80, VIEW_W / 2, VIEW_H / 2, VIEW_W * 0.72);
+  gradient.addColorStop(0, "rgba(255,255,255,0.03)");
+  gradient.addColorStop(1, "rgba(0,0,0,0.28)");
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, VIEW_W, VIEW_H);
+}
+
+function drawLocalImage(g, name, x, y, width, height, alpha, angle) {
+  const img = imageAssets[name];
+  if (!loadedImage(img)) return false;
+  g.save();
+  g.translate(Math.round(x), Math.round(y));
+  g.rotate(angle || 0);
+  g.globalAlpha *= alpha == null ? 1 : alpha;
+  g.drawImage(img, -width / 2, -height / 2, width, height);
+  g.restore();
+  return true;
+}
+
+function drawBackdropTileSheen(x, y, px, py, visible) {
+  if (!visible) {
+    ctx.fillStyle = "rgba(5, 9, 9, 0.22)";
+    ctx.fillRect(px, py, TILE, TILE);
+    return;
+  }
+  if ((x * 29 + y * 17) % 7 === 0) {
+    ctx.fillStyle = "rgba(230, 244, 234, 0.035)";
+    ctx.fillRect(px + 2, py + 2, TILE - 4, TILE - 4);
+  }
+}
+
+function drawBackdropWallOverlay(x, y, px, py, visible, seen) {
+  ctx.fillStyle = visible ? "rgba(4, 6, 6, 0.02)" : "rgba(4, 6, 6, 0.28)";
+  ctx.fillRect(px, py, TILE, TILE);
+  if (!visible && seen) {
+    ctx.fillStyle = "rgba(8, 14, 13, 0.16)";
+    ctx.fillRect(px, py, TILE, TILE);
   }
 }
 
@@ -5406,9 +5882,10 @@ function renderHomeHub() {
   const unlocked = missions.filter((mission) => isMissionUnlocked(mission));
   const lastById = missions.find((mission) => mission.id === state.profile.lastMissionId);
   const last = (lastById && isMissionUnlocked(lastById)) ? lastById : unlocked[0];
-  const completed = Object.keys(state.profile.completed).length;
+  const completed = completionCount(state.profile);
+  const stars = totalStars(state.profile);
   const locked = missions.length - unlocked.length;
-  const best = last ? state.profile.bestGrades[last.id] || "none" : "none";
+  const best = last ? bestGradeForMission(state.profile, last.id) || "none" : "none";
   homeHub.innerHTML = `
     <div class="home-backdrop">
       <img class="home-keyart" src="./assets/home-keyart.png?v=${ASSET_VERSION}" alt="" />
@@ -5416,7 +5893,7 @@ function renderHomeHub() {
     <div class="home-topline">
       <img class="home-logo" src="./assets/logo.png?v=${ASSET_VERSION}" alt="" />
       <span>Breachline Pixel</span>
-      <em>${completed} ops complete | ${state.profile.credits} credits${locked > 0 ? ` | ${locked} locked` : ""}</em>
+      <em>${completed} ops complete | ${stars} stars | ${state.profile.credits} credits${locked > 0 ? ` | ${locked} locked` : ""}</em>
     </div>
     <div class="home-main">
       <div class="home-title">
@@ -5600,20 +6077,24 @@ function formatTime(seconds) {
 
 function renderCampaignPanel() {
   const missions = availableMissions();
+  const stars = totalStars(state.profile);
   leftContent.innerHTML = `
     <div class="stack">
       <div class="row between">
         <h2>Operations</h2>
-        <span class="pill">${missions.length} missions</span>
+        <span class="pill">${stars} stars | ${missions.length} missions</span>
       </div>
       ${missions
         .map((mission) => {
-          const grade = state.profile.bestGrades[mission.id] || "";
+          const grade = bestGradeForMission(state.profile, mission.id);
+          const missionStars = completionStars(state.profile, mission.id);
           const lock = missionUnlockStatus(mission, state.profile);
           const lockedClass = lock.unlocked ? "" : "locked";
           const activeClass = state.mission && state.mission.id === mission.id ? "active" : "";
+          const thumbKey = missionThumbnailKey(mission);
           return `
             <button class="mission-btn ${activeClass} ${lockedClass}" data-mission="${esc(mission.id)}" ${lock.unlocked ? "" : 'aria-disabled="true"'}>
+              ${assetImageMarkup(thumbKey, "mission-thumb", mission.title)}
               ${lock.unlocked ? "" : `
                 <span class="mission-lock-stamp" aria-hidden="true">
                   ${iconMarkup("shield", "mission-lock-icon")}
@@ -5623,10 +6104,16 @@ function renderCampaignPanel() {
                 <span class="mission-lock-badge" aria-hidden="true">DIFF ${mission.difficulty || 1}</span>
               `}
               <strong>${esc(mission.title)}</strong>
-              <span>Difficulty ${mission.difficulty || 1}${mission.levels && mission.levels > 1 ? ` | ${mission.levels} levels` : ""}${mission.night ? " | night" : ""}${grade ? ` | best ${grade}` : ""}</span>
+              <span class="mission-progress">
+                <em>Diff ${mission.difficulty || 1}</em>
+                <em>${mission.levels && mission.levels > 1 ? `${mission.levels} floors` : "single floor"}</em>
+                ${mission.night ? "<em>night</em>" : ""}
+                <em>${grade ? `best ${grade}` : "unscored"}</em>
+                <em>${"*".repeat(missionStars)}${missionStars ? "" : "no stars"}</em>
+              </span>
               ${mission.tags && mission.tags.length ? `<span class="mission-tags">${mission.tags.map((tag) => `<em>${esc(tag)}</em>`).join("")}</span>` : ""}
               <p>${esc(mission.brief || mission.objectiveText || "")}</p>
-              ${lock.unlocked ? "" : `<span class="mission-lock-req">🔒 ${esc(lock.reason)}</span>`}
+              ${lock.unlocked ? "" : `<span class="mission-lock-req">${iconMarkup("shield", "mission-lock-icon")} ${esc(lock.reason)}</span>`}
             </button>
           `;
         })
@@ -5661,12 +6148,14 @@ function renderCampaignPanel() {
 
 function renderArmoryPanel() {
   const classes = ["all", ...new Set(weaponOrder.map((id) => weaponDefs[id].class))];
+  const nextUnlock = nextWeaponUnlock(state.profile);
   leftContent.innerHTML = `
     <div class="stack">
       <div class="row between">
         <h2>Armory</h2>
-        <span class="pill">${state.profile.credits} credits</span>
+        <span class="pill">${state.profile.credits} credits | ${totalStars(state.profile)} stars</span>
       </div>
+      ${nextUnlock ? `<p class="armory-next">Next unlock: ${esc(weaponDefs[nextUnlock.id].label)} requires ${esc(nextUnlock.status.reason)}.</p>` : `<p class="armory-next">All listed weapons are unlocked.</p>`}
       <div class="class-filters">
         ${classes
           .map(
@@ -5710,7 +6199,19 @@ function renderArmoryPanel() {
   });
   leftContent.querySelectorAll("[data-weapon-unit]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.profile.armory[button.dataset.weaponUnit].gear = button.dataset.weaponId;
+      const id = normalizeWeaponId(button.dataset.weaponId);
+      const status = weaponUnlockStatus(id, state.profile);
+      if (!status.unlocked) {
+        if (!status.purchasable) {
+          addLog(`${weaponDefs[id].label} locked: needs ${status.reason}.`);
+          markUiDirty();
+          return;
+        }
+        state.profile.credits -= status.credits;
+        state.profile.unlockedWeapons[id] = true;
+        addLog(`Unlocked ${weaponDefs[id].label}.`);
+      }
+      state.profile.armory[button.dataset.weaponUnit].gear = id;
       saveProfile();
       if (state.mission) addLog("Armory changes apply next deployment.");
       markUiDirty();
@@ -5726,10 +6227,12 @@ function renderArmoryPanel() {
 }
 
 function renderWeaponCard(unit, id, weapon, active) {
+  const status = weaponUnlockStatus(id, state.profile);
   return `
-    <button class="weapon-card ${active ? "active" : ""}" data-weapon-unit="${unit.id}" data-weapon-id="${id}">
+    <button class="weapon-card ${active ? "active" : ""} ${status.unlocked ? "" : "locked"} ${status.purchasable ? "purchasable" : ""}" data-weapon-unit="${unit.id}" data-weapon-id="${id}">
+      ${assetImageMarkup(weaponIconKey(id), "weapon-icon", weapon.label)}
       <span class="weapon-title">${esc(weapon.label)}</span>
-      <span class="weapon-meta">${esc(weapon.class)} | reload ${weapon.reloadTime.toFixed(1)}s</span>
+      <span class="weapon-meta">${esc(weapon.class)} | reload ${weapon.reloadTime.toFixed(1)}s${status.unlocked ? "" : ` | ${status.purchasable ? `buy ${status.credits}c` : `locked ${status.reason}`}`}</span>
       ${renderWeaponStat("Damage", weapon.damage, 50)}
       ${renderWeaponStat("Range", weapon.range, 380)}
       ${renderWeaponStat("Rate", weapon.fireRate, 900)}
@@ -6506,7 +7009,7 @@ function repairEditorLayout() {
 }
 
 function loadedImage(image) {
-  return image.complete && Boolean(image.naturalWidth);
+  return Boolean(image && image.complete && image.naturalWidth);
 }
 
 function missingTacticalAssets() {

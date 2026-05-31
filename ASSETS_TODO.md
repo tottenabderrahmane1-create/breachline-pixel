@@ -41,7 +41,11 @@ When Codex delivers these, wire them by:
 1. Adding a slug → `assets/<slug>.png` entry in the `imageAssets` map in `src/game.js`.
 2. Drawing them in the campaign card / portrait / hub render functions instead of fallback text.
 
-## Tier 3 — Weapon / gear icons
+## Tier 3 — Weapon / gear icons (packed May 31, 2026)
+
+The current Armory uses generated raster exports named `assets/weapon-*.png`, packed from
+`assets/imagegen-campaign-armory-sheet.png` by `tools/generate_campaign_armory_assets.py`.
+The older `wep-*` names below are kept as optional future tighter side-profile repaints.
 
 | Slug                              | Size  | Notes                                            |
 | --------------------------------- | ----- | ------------------------------------------------ |
@@ -56,6 +60,20 @@ When Codex delivers these, wire them by:
 | `assets/wep-m249-saw.png`         | 64×24 | "                                                |
 
 Wire in `renderArmoryPanel` once present.
+
+## Tier 3a — Mission thumbnails (packed May 31, 2026)
+
+Generated raster thumbnails now exist for all authored operations:
+`assets/mission-training-block.png`, `mission-catacomb.png`, `mission-embassy-annex.png`,
+`mission-market-rescue.png`, `mission-greenroom.png`, `mission-yardline.png`,
+`mission-server-vault.png`, `mission-steelhouse.png`, `mission-cargo-hold.png`,
+`mission-metro-switch.png`, `mission-clinic-tower.png`, `mission-night-depot.png`,
+`mission-castiron.png`, `mission-vantage-point.png`, `mission-penthouse.png`, and
+`mission-rowhouse.png`.
+
+Gameplay maps do **not** stretch these thumbnails as backgrounds. The mission renderer builds
+a full-resolution raster backdrop from the actual 30×20 playable grid so art and collision
+always line up.
 
 ## Tier 4 — Atmosphere / VFX
 
