@@ -75,6 +75,16 @@ Gameplay maps do **not** stretch these thumbnails as backgrounds. The mission re
 a full-resolution raster backdrop from the actual 30×20 playable grid so art and collision
 always line up.
 
+## Tier 3b — Map tileset (packed May 31, 2026)
+
+Generated tilemap assets now exist under `assets/tile-*.png`, `assets/prop-*.png`,
+`assets/decal-*.png`, `assets/marker-*.png`, and `assets/vfx-*.png`, packed from
+`assets/tilemap-master.png` by `tools/generate_tilemap_assets.py`. These are wired into
+`src/game.js` and are the main in-mission map art pipeline.
+
+Future improvements should regenerate this same sheet layout, not switch back to stretched
+full-map images. The renderer depends on exact 8×8 sheet order and 64×64 crop outputs.
+
 ## Tier 4 — Atmosphere / VFX
 
 | Slug                              | Size      | Purpose                                                  |
